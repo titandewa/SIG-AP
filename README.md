@@ -1,58 +1,102 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# SIGAP_V1
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Sistem Pengajuan & Approval SK (Surat Keputusan) berbasis web — mendigitalisasi alur pengajuan, review, hingga penandatanganan dokumen internal secara transparan dan terlacak.
 
-## About Laravel
+> Status: **MVP (v0.1.0)** — alur utama sudah berjalan, beberapa fitur pendukung (notifikasi WA, verifikasi QR publik) masih dalam pengembangan.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Latar Belakang
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Proses pengajuan SK di banyak instansi masih manual: dokumen fisik berpindah tangan, sulit dilacak siapa yang sudah/belum menyetujui, dan rawan miskomunikasi. SIGAP_V1 mendigitalisasi alur ini dengan sistem approval berjenjang dan riwayat komentar yang transparan antar peninjau.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Alur Sistem
 
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```
+Aspri (Pengaju)
+   │  upload SK + pilih Petinggi peninjau
+   ▼
+Petinggi (Reviewer, bisa lebih dari satu)
+   │  Setujui / Revisi / Tolak + komentar
+   │  (komentar terlihat oleh semua Petinggi lain)
+   ▼
+Jika SEMUA Petinggi menyetujui → status "Siap TTD"
+   ▼
+Dirut (Direktur Utama)
+   │  Sahkan & Tanda Tangan Digital
+   ▼
+Dokumen Disetujui & Sah
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## Role & Hak Akses
 
-## Contributing
+| Role | Deskripsi | Akses Utama |
+|---|---|---|
+| **Aspri** | Mengajukan SK baru | Upload dokumen, pilih peninjau, pantau status |
+| **Petinggi** | Peninjau/reviewer | Setujui, minta revisi, atau tolak + beri komentar |
+| **Dirut** | Direktur Utama | Menandatangani dokumen yang sudah disetujui 100% |
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Setiap role dibatasi lewat middleware (`role:aspri`, `role:petinggi`, `role:dirut`) sehingga hanya bisa mengakses dashboard sesuai perannya.
 
-## Code of Conduct
+## Tech Stack
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- **Backend:** Laravel
+- **Database:** MySQL
+- **Frontend:** Blade Template + Tailwind CSS
+- **Local Dev Environment:** Laragon
 
-## Security Vulnerabilities
+## Fitur Utama
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+- Upload & penyimpanan berkas SK (PDF)
+- Preview dokumen langsung di browser
+- Approval berjenjang dengan status: `DITINJAU`, `PENDING`, `SIAP_TTD`, `DISETUJUI`, `DITOLAK`
+- Riwayat komentar transparan antar Petinggi
+- Nomor dokumen digenerate otomatis (mencegah human error)
+- Tanda tangan digital oleh Dirut dengan posisi stempel yang bisa diatur
+- Drag & drop upload dengan indikator progres
 
-## License
+## Roadmap
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+- [ ] Perbaikan potensi race condition pada penomoran dokumen otomatis
+- [ ] Alur revisi dokumen (re-upload setelah status Revisi/Pending)
+- [ ] Integrasi notifikasi WhatsApp otomatis ke Petinggi yang belum merespons
+- [ ] Verifikasi dokumen publik via QR Code
+- [ ] Automated testing untuk alur approval
+
+## Instalasi Lokal
+
+```bash
+git clone https://github.com/username-kamu/sigap-v1.git
+cd sigap-v1
+
+composer install
+npm install
+
+cp .env.example .env
+php artisan key:generate
+
+# Sesuaikan koneksi database di file .env
+php artisan migrate
+
+php artisan storage:link
+
+npm run dev
+php artisan serve
+```
+
+## Struktur Direktori Penting
+
+```
+app/Http/Controllers/DocumentController.php   # Logika utama alur dokumen
+app/Models/                                    # Document, DocumentApproval, DocumentVersion, Comment
+resources/views/app/aspri/dashboard.blade.php     # Dashboard Aspri
+resources/views/app/petinggi/dashboard.blade.php  # Dashboard Petinggi
+resources/views/app/dirut/dashboard.blade.php     # Dashboard Dirut
+routes/web.php                                 # Definisi route per role
+```
+
+## Kontribusi
+
+Proyek ini masih dalam pengembangan aktif sebagai bagian dari pembelajaran/portofolio pribadi. Saran dan masukan terbuka lewat Issues.
+
+---
+
+*Dibangun sebagai eksplorasi pengembangan sistem approval dokumen digital berbasis Laravel.*

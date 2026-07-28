@@ -26,8 +26,7 @@ Route::prefix('demo')->group(function () {
 });
 
 // Public Verification (Bisa diakses publik tanpa login)
-Route::get('/verify/{hash?}', [DocumentController::class, 'verifyDocument'])->name('public.verify');
-
+Route::get('/verify/{hash}', [DocumentController::class, 'verifyDocument'])->name('public.verify');
 
 /*
 |--------------------------------------------------------------------------
@@ -58,8 +57,11 @@ Route::middleware(['auth'])->group(function () {
 
     // Route khusus Aspri
     Route::middleware(['role:aspri'])->group(function () {
+        Route::post('/app/aspri/revisi/{id}', [DocumentController::class, 'uploadRevision'])->name('aspri.revisi');
         Route::post('/app/aspri/store', [DocumentController::class, 'store'])->name('aspri.store');
+        Route::post('/app/aspri/reminder/{id}', [DocumentController::class, 'sendReminder'])->name('aspri.reminder');
         Route::get('/app/aspri/dashboard', [DocumentController::class, 'indexAspri'])->name('app.aspri.dashboard');
+        Route::get('/app/aspri/riwayat', [DocumentController::class, 'riwayatAspri'])->name('aspri.riwayat');
     });
 
     Route::middleware(['role:petinggi'])->group(function () {

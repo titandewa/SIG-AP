@@ -11,6 +11,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use setasign\Fpdi\Fpdi;
+use Endroid\QrCode\QrCode;
+use Endroid\QrCode\Writer\PngWriter;
 
 class DocumentController extends Controller
 {
@@ -30,9 +35,9 @@ class DocumentController extends Controller
 
     public function verifyDocument($hash)
     {
-        $document = Document::where('qr_code_hash', $hash)->firstOrFail();
-        
-        return view('demo.verify', compact('document'));
+        $document = Document::with('user')->where('qr_code_hash', $hash)->first();
+
+        return view('verify', compact('document'));
     }
 
 
@@ -49,6 +54,20 @@ class DocumentController extends Controller
         $documents = Document::with(['versions', 'approvals.user', 'latestVersion'])->latest()->get();
 
         return view('app.aspri.dashboard', compact('petinggiList', 'documents'));
+    }
+
+    public function riwayatAspri(Request $request)
+    {
+        $query = Document::with(['latestVersion', 'approvals.user'])
+            ->where('user_id', Auth::id());
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $documents = $query->orderBy('created_at', 'asc')->get();
+
+        return view('app.aspri.riwayat', compact('documents'));
     }
 
     // Dashboard Petinggi Real
@@ -90,41 +109,46 @@ class DocumentController extends Controller
     {
         $request->validate([
             'title' => 'required|string|max:255',
-            'pdf_file' => 'required|mimes:pdf|max:10240', // Max 10MB
+            'pdf_file' => 'required|mimes:pdf|max:10240',
             'petinggi_ids' => 'required|array',
         ]);
 
-        // Generate Nomor Dokumen Otomatis (format: SK-202607-0001)
-        $documentNumber = 'SK-' . date('Ym') . '-' . str_pad(Document::count() + 1, 4, '0', STR_PAD_LEFT);
+        $document = DB::transaction(function () use ($request) {
+            $documentNumber = 'SK-' . date('Ym') . '-' . str_pad(
+                Document::whereYear('created_at', date('Y'))
+                    ->whereMonth('created_at', date('m'))
+                    ->lockForUpdate()
+                    ->count() + 1,
+                4, '0', STR_PAD_LEFT
+            );
 
-        // Upload Berkas PDF
-        $file = $request->file('pdf_file');
-        $filePath = $file->store('documents/v1', 'public');
+            $file = request()->file('pdf_file');
+            $filePath = $file->store('documents/v1', 'public');
 
-        // Buat Record Dokumen Utama
-        $document = Document::create([
-            'user_id' => Auth::id() ?? 1,
-            'title' => $request->title,
-            'document_number' => $documentNumber,
-            'status' => 'DITINJAU',
-        ]);
-
-        // Versi 1 Berkas
-        DocumentVersion::create([
-            'document_id' => $document->id,
-            'version_number' => 1,
-            'file_path' => $filePath,
-            'original_filename' => $file->getClientOriginalName(),
-        ]);
-
-        // Daftarkan Petinggi yang Harus Review
-        foreach ($request->petinggi_ids as $petinggiId) {
-            DocumentApproval::create([
-                'document_id' => $document->id,
-                'user_id' => $petinggiId,
-                'status' => 'MENUNGGU',
+            $document = Document::create([
+                'user_id' => Auth::id() ?? 1,
+                'title' => $request->title,
+                'document_number' => $documentNumber,
+                'status' => 'DITINJAU',
             ]);
-        }
+
+            DocumentVersion::create([
+                'document_id' => $document->id,
+                'version_number' => 1,
+                'file_path' => $filePath,
+                'original_filename' => $file->getClientOriginalName(),
+            ]);
+
+            foreach ($request->petinggi_ids as $petinggiId) {
+                DocumentApproval::create([
+                    'document_id' => $document->id,
+                    'user_id' => $petinggiId,
+                    'status' => 'MENUNGGU',
+                ]);
+            }
+
+            return $document;
+        });
 
         return redirect()->back()->with('success', 'SK berhasil diajukan dan diteruskan ke para Petinggi!');
     }
@@ -174,29 +198,156 @@ class DocumentController extends Controller
         return redirect()->back()->with('success', 'Keputusan Anda berhasil disimpan!');
     }
 
-    // Eksekusi TTD Digital oleh Dirut
+
+    // Logika Re-Upload
+    public function uploadRevision(Request $request, $id)
+    {
+        $request->validate([
+            'pdf_file' => 'required|mimes:pdf|max:10240',
+        ]);
+
+        $document = Document::with('versions')->findOrFail($id);
+
+        if ($document->status !== 'PENDING') {
+            return redirect()->back()->with('error', 'Dokumen ini tidak sedang dalam status revisi.');
+        }
+
+        DB::transaction(function () use ($request, $document) {
+            $file = $request->file('pdf_file');
+            $filePath = $file->store('documents/v1', 'public');
+
+            $nextVersion = $document->versions()->max('version_number') + 1;
+
+            DocumentVersion::create([
+                'document_id' => $document->id,
+                'version_number' => $nextVersion,
+                'file_path' => $filePath,
+                'original_filename' => $file->getClientOriginalName(),
+            ]);
+
+            // Reset semua approval Petinggi karena dokumen berubah
+            $document->approvals()->update(['status' => 'MENUNGGU']);
+
+            $document->update(['status' => 'DITINJAU']);
+        });
+
+        return redirect()->back()->with('success', 'Revisi berhasil diunggah, menunggu peninjauan ulang dari Petinggi.');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 3. AUTO-SEND (BACKEND)
+    |--------------------------------------------------------------------------
+    */
+
+    public function sendReminder($id)
+    {
+        $document = Document::with('approvals.user')->findOrFail($id);
+
+        $pendingApprovals = $document->approvals->where('status', 'MENUNGGU');
+
+        if ($pendingApprovals->isEmpty()) {
+            return redirect()->back()->with('error', 'Semua Petinggi sudah merespons, tidak ada yang perlu diingatkan.');
+        }
+
+        $terkirim = [];
+
+        foreach ($pendingApprovals as $approval) {
+            $user = $approval->user;
+
+            if (!$user || !$user->phone) {
+                continue;
+            }
+
+            $nomor = $this->formatNomorWA($user->phone);
+
+            $pesan = "Halo {$user->name},\n\nAnda memiliki pengajuan SK yang menunggu peninjauan:\n\n"
+                . "Judul: {$document->title}\n"
+                . "No: {$document->document_number}\n\n"
+                . "Mohon segera ditinjau melalui sistem SIGAP_V1.\n\nTerima kasih.";
+
+            Http::withHeaders([
+                'Authorization' => config('services.fonnte.token'),
+            ])->post('https://api.fonnte.com/send', [
+                'target' => $nomor,
+                'message' => $pesan,
+            ]);
+
+            $terkirim[] = $user->name;
+        }
+
+        if (empty($terkirim)) {
+            return redirect()->back()->with('error', 'Tidak ada nomor WA valid untuk dikirimi reminder.');
+        }
+
+        return redirect()->back()->with('success', 'Reminder terkirim ke: ' . implode(', ', $terkirim));
+    }
+
+    private function formatNomorWA($nomor)
+    {
+        $nomor = preg_replace('/[^0-9]/', '', $nomor);
+        if (substr($nomor, 0, 1) === '0') {
+            $nomor = '62' . substr($nomor, 1);
+        }
+        return $nomor;
+    }
+
     public function signDirut(Request $request, $id)
     {
         $request->validate([
             'position' => 'nullable|string|in:center,left,right',
         ]);
 
-        $doc = Document::findOrFail($id);
+        $doc = Document::with('latestVersion')->findOrFail($id);
 
         if ($doc->status !== 'SIAP_TTD') {
             return redirect()->back()->with('error', 'Dokumen belum mendapat persetujuan 100% dari Petinggi!');
         }
 
-        // Generate Hash Unik Verifikasi QR Code
+        $originalPdfPath = storage_path('app/public/' . $doc->latestVersion->file_path);
+
+        // 1. Hitung hash dari file asli
+        $fileHash = hash_file('sha256', $originalPdfPath);
+
+        // 2. Generate kode unik verifikasi
         $qrHash = 'SIGAP-' . date('Ymd') . '-' . Str::random(8);
 
+        // 3. Generate QR Code
+        $qrCode = new QrCode(route('public.verify', $qrHash));
+        $writer = new PngWriter();
+        $qrResult = $writer->write($qrCode);
+        $qrBase64 = base64_encode($qrResult->getString());
+
+        // 4. Buat halaman sertifikat terpisah (PDF baru, bukan gabungan PDF asli)
+        $pdf = new \Mpdf\Mpdf();
+        $html = view('certificate', [
+            'document' => $doc,
+            'qrBase64' => $qrBase64,
+            'position' => $request->position ?? 'center',
+        ])->render();
+        $pdf->WriteHTML($html);
+
+        $certFileName = 'certificate_' . $doc->document_number . '_' . time() . '.pdf';
+        $certRelativePath = 'documents/certificates/' . $certFileName;
+        $certFullPath = storage_path('app/public/' . $certRelativePath);
+
+        if (!file_exists(dirname($certFullPath))) {
+            mkdir(dirname($certFullPath), 0755, true);
+        }
+
+        $pdf->Output($certFullPath, \Mpdf\Output\Destination::FILE);
+
+        // 5. Update database
         $doc->update([
             'status' => 'DISETUJUI',
             'qr_code_hash' => $qrHash,
             'stamp_position' => $request->position ?? 'center',
             'signed_at' => now(),
+            'signed_file_path' => $certRelativePath,
+            'file_hash' => $fileHash,
         ]);
 
         return redirect()->back()->with('success', 'Dokumen SK berhasil ditandatangani dan disahkan!');
     }
+
 }

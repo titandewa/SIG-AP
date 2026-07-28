@@ -26,6 +26,13 @@
             <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold">
                 {{ strtoupper(substr(auth()->user()->name ?? 'P', 0, 1)) }}
             </div>
+
+            <form action="{{ route('logout') }}" method="POST">
+                @csrf
+                <button type="submit" class="bg-slate-800 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+            </form>
         </div>
     </nav>
 

@@ -21,6 +21,13 @@
         <div class="flex items-center gap-3">
             <span class="bg-indigo-800 text-xs px-3 py-1 rounded-full border border-indigo-700">Role: Aspri / Admin</span>
             <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center font-bold">A</div>
+
+            <form action="{{ route('logout') }}" method="POST">
+                @csrf
+                <button type="submit" class="bg-slate-800 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+            </form>
         </div>
     </nav>
 
@@ -117,7 +124,12 @@
                         <h2 class="text-lg font-bold text-slate-900">Daftar Pengajuan SK Aktif</h2>
                         <p class="text-xs text-slate-500">Pantau proses persetujuan dan kirim reminder otomatis.</p>
                     </div>
-                    <span class="bg-indigo-50 text-indigo-700 font-bold text-xs px-3 py-1 rounded-full">Total: {{ $documents->count() }} SK</span>
+                    <div class="flex items-center gap-2">
+                        <a href="{{ route('aspri.riwayat') }}" class="text-xs font-semibold text-indigo-600 hover:underline flex items-center gap-1">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Lihat Riwayat
+                        </a>
+                        <span class="bg-indigo-50 text-indigo-700 font-bold text-xs px-3 py-1 rounded-full">Total: {{ $documents->count() }} SK</span>
+                    </div>
                 </div>
 
                 <div class="space-y-4">
@@ -146,10 +158,12 @@
                                     </p>
                                 </div>
 
-                                <button onclick="alert('Fitur Auto-WA Reminder belum terhubung ke API WhatsApp.')"
-                                        class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition shadow-sm flex items-center gap-1.5 shrink-0">
-                                    <i class="fa-brands fa-whatsapp text-sm"></i> Send Auto-WA Reminder
-                                </button>
+                                <form action="{{ route('aspri.reminder', $document->id) }}" method="POST">
+                                    @csrf
+                                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition shadow-sm flex items-center gap-1.5">
+                                        <i class="fa-brands fa-whatsapp text-sm"></i> Send Auto-WA Reminder
+                                    </button>
+                                </form>
                             </div>
 
                             <hr class="my-3 border-slate-200">
@@ -185,6 +199,22 @@
                                     @endforeach
                                 </div>
                             </div>
+
+                            @if($document->status === 'PENDING')
+                                <div class="mt-3 pt-3 border-t border-amber-200 bg-amber-50/50 -mx-4 px-4 pb-1">
+                                    <p class="text-[11px] text-amber-700 font-semibold mb-2 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-triangle-exclamation"></i> Petinggi meminta revisi. Unggah berkas terbaru:
+                                    </p>
+                                    <form action="{{ route('aspri.revisi', $document->id) }}" method="POST" enctype="multipart/form-data" class="flex items-center gap-2">
+                                        @csrf
+                                        <input type="file" name="pdf_file" accept=".pdf" required
+                                            class="text-[11px] flex-1 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-amber-600 file:text-white hover:file:bg-amber-700 file:cursor-pointer">
+                                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold px-3 py-2 rounded-lg transition shrink-0">
+                                            <i class="fa-solid fa-upload mr-1"></i> Kirim Revisi
+                                        </button>
+                                    </form>
+                                </div>
+                            @endif
 
                             <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
                                 <span class="text-slate-400 italic">*Petinggi lain dapat melihat komentar secara transparan.</span>

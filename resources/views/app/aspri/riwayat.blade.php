@@ -10,31 +10,31 @@
 <body class="bg-slate-100 font-sans text-slate-800">
 
     <!-- Topbar -->
-    <nav class="bg-indigo-900 text-white px-6 py-4 flex justify-between items-center shadow-md">
+    <nav class="bg-indigo-900 text-white px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-y-2 shadow-md">
         <div class="flex items-center gap-3">
             <a href="{{ route('app.aspri.dashboard') }}" class="bg-indigo-800 hover:bg-indigo-700 p-2 rounded-lg text-xs font-semibold text-indigo-200 flex items-center gap-1 transition">
-                <i class="fa-solid fa-arrow-left"></i> Kembali
+                <i class="fa-solid fa-arrow-left"></i> <span class="hidden sm:inline">Kembali</span>
             </a>
-            <h1 class="font-bold text-lg leading-none border-l border-indigo-800 pl-3">
-                SIGAP_V1 <span class="text-xs text-indigo-300 font-normal">/ Riwayat Dokumen</span>
+            <h1 class="font-bold text-base sm:text-lg leading-none border-l border-indigo-800 pl-3">
+                SIGAP_V1 <span class="text-xs text-indigo-300 font-normal hidden sm:inline">/ Riwayat Dokumen</span>
             </h1>
         </div>
-        <div class="flex items-center gap-3">
-            <span class="bg-indigo-800 text-xs px-3 py-1 rounded-full border border-indigo-700">Role: Aspri / Admin</span>
+        <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <span class="hidden md:inline-flex bg-indigo-800 text-xs px-3 py-1 rounded-full border border-indigo-700">Role: Aspri / Admin</span>
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
                 <button type="submit" class="bg-slate-800 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                    <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden sm:inline">Logout</span>
                 </button>
             </form>
         </div>
     </nav>
 
-    <div class="max-w-5xl mx-auto p-6">
+    <div class="max-w-5xl mx-auto p-4 sm:p-6">
 
         <!-- Filter -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-6">
-            <form method="GET" action="{{ route('aspri.riwayat') }}" class="flex items-center gap-3">
+            <form method="GET" action="{{ route('aspri.riwayat') }}" class="flex flex-wrap items-center gap-3">
                 <label class="text-xs font-semibold text-slate-600">Filter Status:</label>
                 <select name="status" onchange="this.form.submit()" class="text-xs border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-indigo-500">
                     <option value="">Semua Status</option>
@@ -54,7 +54,7 @@
         <div class="space-y-4">
             @forelse($documents as $document)
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                    <div class="flex justify-between items-start">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                         <div>
                             <span class="font-bold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider
                                 {{ $document->status === 'DITINJAU' ? 'bg-amber-100 text-amber-800' : '' }}
@@ -71,7 +71,7 @@
                         </div>
 
                         @if(in_array($document->status, ['DITINJAU', 'PENDING']))
-                            <div class="text-right countdown-box" data-created="{{ $document->created_at->toIso8601String() }}">
+                            <div class="text-left sm:text-right countdown-box" data-created="{{ $document->created_at->toIso8601String() }}">
                                 <p class="text-[10px] text-slate-400 mb-1 countdown-label">Sisa Waktu Batas 24 Jam</p>
                                 <p class="countdown-text font-bold text-sm text-slate-700">-</p>
                             </div>

@@ -30,43 +30,53 @@
 
     <div class="flex flex-col h-full">
         <!-- Topbar -->
-        <nav class="bg-indigo-950 text-white px-6 py-3 flex justify-between items-center shadow-md shrink-0">
-            <div class="flex items-center gap-3">
-                <a href="{{ route('app.dirut.dashboard') }}" class="bg-indigo-900 hover:bg-indigo-800 p-2 rounded-lg text-xs font-semibold text-indigo-200 flex items-center gap-1 transition">
-                    <i class="fa-solid fa-arrow-left"></i> Batal
+        <nav class="bg-indigo-950 text-white px-4 sm:px-6 py-3 flex justify-between items-center shadow-md shrink-0 z-20 relative">
+            <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                <button onclick="togglePanel('thumb')" class="lg:hidden bg-indigo-900 hover:bg-indigo-800 p-2 rounded-lg text-xs text-indigo-200 transition shrink-0">
+                    <i class="fa-solid fa-images"></i>
+                </button>
+                <a href="{{ route('app.dirut.dashboard') }}" class="bg-indigo-900 hover:bg-indigo-800 p-2 rounded-lg text-xs font-semibold text-indigo-200 flex items-center gap-1 transition shrink-0">
+                    <i class="fa-solid fa-arrow-left"></i> <span class="hidden sm:inline">Batal</span>
                 </a>
-                <h1 class="font-bold text-lg leading-none border-l border-indigo-800 pl-3">
-                    SIGAP_V1 <span class="text-xs text-amber-400 font-normal">/ Tandatangani Dokumen</span>
+                <h1 class="font-bold text-sm sm:text-lg leading-none border-l border-indigo-800 pl-3 truncate">
+                    SIGAP_V1 <span class="text-xs text-amber-400 font-normal hidden sm:inline">/ Tandatangani Dokumen</span>
                 </h1>
             </div>
+            <button onclick="togglePanel('sign')" class="lg:hidden bg-amber-500 hover:bg-amber-600 text-slate-900 p-2 rounded-lg text-xs font-bold transition shrink-0 flex items-center gap-1.5">
+                <i class="fa-solid fa-pen-nib"></i> <span class="hidden xs:inline">TTD</span>
+            </button>
         </nav>
 
-        <!-- Body: 3 kolom -->
-        <div class="flex flex-1 min-h-0">
+        <!-- Backdrop buat drawer mobile -->
+        <div id="mobileBackdrop" onclick="closeAllPanels()" class="hidden fixed inset-0 bg-slate-900/50 z-20 lg:hidden"></div>
+
+        <!-- Body: 3 kolom (desktop) / drawer (mobile) -->
+        <div class="flex flex-1 min-h-0 relative">
 
             <!-- Sidebar kiri: thumbnail -->
-            <aside id="thumbSidebar" class="w-40 bg-white border-r border-slate-200 overflow-y-auto p-2 shrink-0"></aside>
+            <aside id="thumbSidebar"
+                class="hidden lg:block fixed lg:static inset-y-0 left-0 z-30 w-56 lg:w-40 bg-white border-r border-slate-200 overflow-y-auto p-2 shrink-0 shadow-xl lg:shadow-none"></aside>
 
             <!-- Tengah: viewer -->
             <main class="flex-1 flex flex-col min-w-0">
                 <!-- Nav halaman -->
-                <div class="flex items-center justify-center gap-3 px-4 py-2 bg-white border-b border-slate-200 shrink-0">
-                    <button id="prevPageBtn" onclick="changePage(-1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition">
+                <div class="flex items-center justify-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 bg-white border-b border-slate-200 shrink-0">
+                    <button id="prevPageBtn" onclick="changePage(-1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition shrink-0">
                         <i class="fa-solid fa-chevron-up"></i>
                     </button>
                     <div class="flex items-center gap-2">
-                        <input type="number" id="pageInput" value="1" min="1" class="w-16 text-center border border-slate-300 rounded-lg px-2 py-1 text-sm" onchange="goToPage(this.value)">
+                        <input type="number" id="pageInput" value="1" min="1" class="w-14 sm:w-16 text-center border border-slate-300 rounded-lg px-2 py-1 text-sm" onchange="goToPage(this.value)">
                         <span class="text-sm text-slate-500">/ <span id="totalPages">-</span></span>
                     </div>
-                    <button id="nextPageBtn" onclick="changePage(1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition">
+                    <button id="nextPageBtn" onclick="changePage(1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition shrink-0">
                         <i class="fa-solid fa-chevron-down"></i>
                     </button>
-                    <span class="text-xs text-slate-400 border-l border-slate-200 pl-3 ml-1 truncate max-w-xs">{{ $document->title }}</span>
+                    <span class="text-xs text-slate-400 border-l border-slate-200 pl-3 ml-1 truncate max-w-[100px] sm:max-w-xs hidden sm:inline">{{ $document->title }}</span>
                 </div>
 
                 <!-- Area preview full, fit lebar -->
-                <div id="viewerScroll" class="flex-1 overflow-auto bg-slate-200 p-6 flex justify-center">
-                    <div id="pdfContainer" class="relative bg-white shadow-md h-fit" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
+                <div id="viewerScroll" class="flex-1 overflow-auto bg-slate-200 p-3 sm:p-6 flex justify-center">
+                    <div id="pdfContainer" class="relative bg-white shadow-md h-fit">
                         <canvas id="pdfCanvas"></canvas>
                     </div>
                 </div>
@@ -75,24 +85,30 @@
                     <i class="fa-solid fa-spinner animate-spin mr-1"></i> Memuat dokumen...
                 </div>
 
-                <div class="flex justify-end gap-2 p-4 bg-white border-t border-slate-200 shrink-0">
+                <div class="flex justify-end gap-2 p-3 sm:p-4 bg-white border-t border-slate-200 shrink-0">
                     <a href="{{ route('app.dirut.dashboard') }}" class="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-semibold rounded-lg transition">
                         Batalkan
                     </a>
-                    <button id="submitBtn" onclick="prosesTandaTangan()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition shadow-md flex items-center gap-2">
-                        <i class="fa-solid fa-stamp"></i> Sahkan Dokumen
+                    <button id="submitBtn" onclick="prosesTandaTangan()" class="px-4 sm:px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-stamp"></i> <span class="hidden sm:inline">Sahkan Dokumen</span><span class="inline sm:hidden">Sahkan</span>
                     </button>
                 </div>
             </main>
 
             <!-- Sidebar kanan: pilihan tanda tangan -->
-            <aside class="w-72 bg-white border-l border-slate-200 p-5 overflow-y-auto shrink-0">
-                <h2 class="font-bold text-slate-900 mb-1">Pilihan tanda tangan</h2>
+            <aside id="signPanel"
+                class="hidden lg:block fixed lg:static inset-x-0 bottom-0 lg:inset-auto z-30 lg:w-72 bg-white border-l border-slate-200 p-5 overflow-y-auto shrink-0 rounded-t-2xl lg:rounded-none shadow-xl lg:shadow-none max-h-[70vh] lg:max-h-none">
+                <div class="flex justify-between items-center lg:block mb-1">
+                    <h2 class="font-bold text-slate-900">Pilihan tanda tangan</h2>
+                    <button onclick="closeAllPanels()" class="lg:hidden text-slate-400 hover:text-slate-700">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
                 <p class="text-xs text-slate-500 mb-4">Seret kotak di bawah ke posisi yang diinginkan pada dokumen.</p>
 
                 <p class="text-xs font-semibold text-slate-600 mb-2">Kotak isian wajib diisi</p>
-                <div id="dragSignatureSource" draggable="true" ondragstart="event.dataTransfer.setData('text/plain','signature')"
-                    class="flex items-center gap-2 border border-slate-200 rounded-xl p-2 cursor-grab active:cursor-grabbing hover:border-indigo-300 hover:bg-indigo-50/50 transition select-none">
+                <div id="dragSignatureSource"
+                    class="flex items-center gap-2 border border-slate-200 rounded-xl p-2 cursor-grab active:cursor-grabbing hover:border-indigo-300 hover:bg-indigo-50/50 transition select-none touch-none">
                     <span class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
                         <i class="fa-solid fa-pen-nib"></i>
                     </span>
@@ -104,7 +120,7 @@
 
                 <p class="text-xs text-slate-400 mt-4">
                     <i class="fa-solid fa-circle-info mr-1"></i>
-                    Klik kanan pada tanda tangan di dokumen untuk menghapus, atau tekan tombol silang merah. Tarik bulatan di tepi kotak untuk mengubah ukuran.
+                    Klik kanan (atau tahan sebentar di HP) pada tanda tangan di dokumen untuk menghapus, atau tekan tombol silang merah. Tarik bulatan di tepi kotak untuk mengubah ukuran.
                 </p>
             </aside>
         </div>
@@ -282,18 +298,68 @@
             await renderPage(currentPage);
         }
 
-        // ---------- TANDA TANGAN: drag dari panel & drop ke dokumen ----------
-        function handleDrop(event) {
-            event.preventDefault();
-            const type = event.dataTransfer.getData('text/plain');
-            if (type !== 'signature') return;
+        // ---------- TANDA TANGAN: drag dari panel & drop ke dokumen (via interact.js, jalan di mouse & sentuhan) ----------
+        function initSignatureSourceDrag() {
+            const source = document.getElementById('dragSignatureSource');
 
-            const container = document.getElementById('pdfContainer');
-            const rect = container.getBoundingClientRect();
-            const dropX = event.clientX - rect.left;
-            const dropY = event.clientY - rect.top;
+            interact(source).draggable({
+                inertia: false,
+                autoScroll: true,
+                listeners: {
+                    start(event) {
+                        const rect = event.target.getBoundingClientRect();
+                        const clone = event.target.cloneNode(true);
+                        clone.id = 'dragSignatureClone';
+                        clone.style.position = 'fixed';
+                        clone.style.left = rect.left + 'px';
+                        clone.style.top = rect.top + 'px';
+                        clone.style.width = rect.width + 'px';
+                        clone.style.zIndex = 9999;
+                        clone.style.pointerEvents = 'none';
+                        clone.style.opacity = '0.85';
+                        clone.setAttribute('data-x', rect.left);
+                        clone.setAttribute('data-y', rect.top);
+                        document.body.appendChild(clone);
+                        event.target._cloneEl = clone;
+                    },
+                    move(event) {
+                        const clone = event.target._cloneEl;
+                        if (!clone) return;
+                        const x = (parseFloat(clone.getAttribute('data-x')) || 0) + event.dx;
+                        const y = (parseFloat(clone.getAttribute('data-y')) || 0) + event.dy;
+                        clone.style.left = x + 'px';
+                        clone.style.top = y + 'px';
+                        clone.setAttribute('data-x', x);
+                        clone.setAttribute('data-y', y);
+                    },
+                    end(event) {
+                        const clone = event.target._cloneEl;
+                        if (!clone) return;
 
-            addSignatureInstance(dropX - 80, dropY - 35); // pusatkan kira-kira di titik drop
+                        const cloneRect = clone.getBoundingClientRect();
+                        const dropCenterX = cloneRect.left + cloneRect.width / 2;
+                        const dropCenterY = cloneRect.top + cloneRect.height / 2;
+
+                        const container = document.getElementById('pdfContainer');
+                        const containerRect = container.getBoundingClientRect();
+
+                        const isOverDocument = (
+                            dropCenterX >= containerRect.left && dropCenterX <= containerRect.right &&
+                            dropCenterY >= containerRect.top && dropCenterY <= containerRect.bottom
+                        );
+
+                        if (isOverDocument) {
+                            const relX = dropCenterX - containerRect.left - 80;
+                            const relY = dropCenterY - containerRect.top - 35;
+                            addSignatureInstance(relX, relY);
+                            closeAllPanels(); // biar user langsung lihat hasilnya di HP
+                        }
+
+                        clone.remove();
+                        event.target._cloneEl = null;
+                    }
+                }
+            });
         }
 
         function addSignatureInstance(x = null, y = null) {
@@ -496,7 +562,34 @@
             }
         }
 
+        // ---------- Drawer Mobile (thumbnail & panel TTD) ----------
+        function togglePanel(which) {
+            const thumb = document.getElementById('thumbSidebar');
+            const sign = document.getElementById('signPanel');
+            const backdrop = document.getElementById('mobileBackdrop');
+
+            const target = which === 'thumb' ? thumb : sign;
+            const isOpen = !target.classList.contains('hidden');
+
+            // tutup dulu semua
+            thumb.classList.add('hidden');
+            sign.classList.add('hidden');
+            backdrop.classList.add('hidden');
+
+            if (!isOpen) {
+                target.classList.remove('hidden');
+                backdrop.classList.remove('hidden');
+            }
+        }
+
+        function closeAllPanels() {
+            document.getElementById('thumbSidebar').classList.add('hidden');
+            document.getElementById('signPanel').classList.add('hidden');
+            document.getElementById('mobileBackdrop').classList.add('hidden');
+        }
+
         loadPdf();
+        initSignatureSourceDrag();
     </script>
 
 </body>

@@ -10,28 +10,28 @@
 <body class="bg-slate-100 font-sans text-slate-800" data-has-errors="{{ $errors->any() ? 'true' : 'false' }}">
 
     <!-- Topbar -->
-    <nav class="bg-indigo-900 text-white px-6 py-4 flex justify-between items-center shadow-md">
+    <nav class="bg-indigo-900 text-white px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-y-2 shadow-md">
         <div class="flex items-center gap-3">
             <div class="bg-indigo-600 p-2 rounded-lg font-bold text-xl">S</div>
             <div>
                 <h1 class="font-bold text-lg leading-none">SIGAP_V1</h1>
-                <span class="text-xs text-indigo-200">Sistem Pengajuan & Approval SK</span>
+                <span class="text-xs text-indigo-200 hidden sm:inline">Sistem Pengajuan & Approval SK</span>
             </div>
         </div>
-        <div class="flex items-center gap-3">
-            <span class="bg-indigo-800 text-xs px-3 py-1 rounded-full border border-indigo-700">Role: Aspri / Admin</span>
-            <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center font-bold">A</div>
+        <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <span class="hidden md:inline-flex bg-indigo-800 text-xs px-3 py-1 rounded-full border border-indigo-700">Role: Aspri / Admin</span>
+            <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center font-bold shrink-0">A</div>
 
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
                 <button type="submit" class="bg-slate-800 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                    <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden sm:inline">Logout</span>
                 </button>
             </form>
         </div>
     </nav>
 
-    <div class="max-w-5xl mx-auto p-6">
+    <div class="max-w-5xl mx-auto p-4 sm:p-6">
 
         @if(session('success'))
             <div class="bg-emerald-50 border border-emerald-300 text-emerald-800 text-sm px-4 py-3 rounded-lg mb-4">
@@ -46,17 +46,17 @@
         @endif
 
         <!-- Header List -->
-        <div class="flex justify-between items-center mb-4">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
             <div>
                 <h2 class="text-lg font-bold text-slate-900">Daftar Pengajuan SK Aktif</h2>
                 <p class="text-xs text-slate-500">Pantau proses persetujuan dan kirim reminder otomatis.</p>
             </div>
             <div class="flex items-center gap-2">
-                <a href="{{ route('aspri.riwayat') }}" class="text-xs font-semibold text-indigo-600 hover:underline flex items-center gap-1">
+                <a href="{{ route('aspri.riwayat') }}" class="text-xs font-semibold text-indigo-600 hover:underline flex items-center gap-1 shrink-0">
                     <i class="fa-solid fa-clock-rotate-left"></i> Riwayat
                 </a>
                 <button onclick="document.getElementById('uploadModal').classList.remove('hidden')"
-                    class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow-sm shrink-0">
                     <i class="fa-solid fa-plus"></i> Buat Pengajuan Baru
                 </button>
             </div>
@@ -77,7 +77,7 @@
                         </span>
                     @endif
 
-                    <div class="flex justify-between items-start mb-3">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3">
                         <div>
                             <span class="font-bold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider
                                 {{ $document->status === 'DITINJAU' ? 'bg-amber-100 text-amber-800' : '' }}
@@ -98,9 +98,9 @@
                             </p>
                         </div>
 
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 shrink-0">
                             @if(in_array($document->status, ['DITINJAU', 'PENDING']))
-                                <div class="text-right countdown-box" data-created="{{ $document->created_at->toIso8601String() }}">
+                                <div class="text-left sm:text-right countdown-box" data-created="{{ $document->created_at->toIso8601String() }}">
                                     <p class="text-[10px] text-slate-400 mb-1 countdown-label">Sisa Waktu Batas 24 Jam</p>
                                     <p class="countdown-text font-bold text-sm text-slate-700">-</p>
                                 </div>
@@ -108,8 +108,8 @@
 
                             <form action="{{ route('aspri.reminder', $document->id) }}" method="POST" onclick="event.stopPropagation()">
                                 @csrf
-                                <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition shadow-sm flex items-center gap-1.5">
-                                    <i class="fa-brands fa-whatsapp text-sm"></i> Send Auto-WA Reminder
+                                <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition shadow-sm flex items-center gap-1.5 whitespace-nowrap">
+                                    <i class="fa-brands fa-whatsapp text-sm"></i> <span class="hidden sm:inline">Send Auto-WA Reminder</span><span class="inline sm:hidden">Reminder</span>
                                 </button>
                             </form>
                         </div>
@@ -154,7 +154,7 @@
                             <p class="text-[11px] text-amber-700 font-semibold mb-2 flex items-center gap-1.5">
                                 <i class="fa-solid fa-triangle-exclamation"></i> Petinggi meminta revisi. Unggah berkas terbaru:
                             </p>
-                            <form action="{{ route('aspri.revisi', $document->id) }}" method="POST" enctype="multipart/form-data" class="flex items-center gap-2" onclick="event.stopPropagation()">
+                            <form action="{{ route('aspri.revisi', $document->id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col sm:flex-row sm:items-center gap-2" onclick="event.stopPropagation()">
                                 @csrf
                                 <input type="file" name="pdf_file" accept=".pdf" required
                                     class="text-[11px] flex-1 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-amber-600 file:text-white hover:file:bg-amber-700 file:cursor-pointer">
@@ -187,7 +187,7 @@
     <!-- Modal Upload SK -->
     <div id="uploadModal" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div class="p-6">
+            <div class="p-4 sm:p-6">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
                         <i class="fa-solid fa-file-circle-plus text-indigo-600"></i> Buat Pengajuan SK Baru

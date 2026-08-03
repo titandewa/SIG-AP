@@ -10,29 +10,29 @@
 <body class="bg-slate-100 font-sans text-slate-800">
 
     <!-- Topbar -->
-    <nav class="bg-indigo-950 text-white px-6 py-4 flex justify-between items-center shadow-md">
+    <nav class="bg-indigo-950 text-white px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-y-2 shadow-md">
         <div class="flex items-center gap-3">
             <a href="{{ route('app.dirut.dashboard') }}" class="bg-indigo-900 hover:bg-indigo-800 p-2 rounded-lg text-xs font-semibold text-indigo-200 flex items-center gap-1 transition">
-                <i class="fa-solid fa-arrow-left"></i> Kembali
+                <i class="fa-solid fa-arrow-left"></i> <span class="hidden sm:inline">Kembali</span>
             </a>
-            <h1 class="font-bold text-lg leading-none border-l border-indigo-800 pl-3">
-                SIGAP_V1 <span class="text-xs text-amber-400 font-normal">/ Riwayat Pengesahan</span>
+            <h1 class="font-bold text-base sm:text-lg leading-none border-l border-indigo-800 pl-3">
+                SIGAP_V1 <span class="text-xs text-amber-400 font-normal hidden sm:inline">/ Riwayat Pengesahan</span>
             </h1>
         </div>
-        <div class="flex items-center gap-3">
-            <span class="bg-amber-400/20 text-amber-300 text-xs px-3 py-1 rounded-full border border-amber-400/30 font-semibold">
+        <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <span class="hidden md:inline-flex bg-amber-400/20 text-amber-300 text-xs px-3 py-1 rounded-full border border-amber-400/30 font-semibold">
                 Role: {{ auth()->user()->name ?? 'Direktur Utama (Dirut)' }}
             </span>
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
                 <button type="submit" class="bg-slate-800 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                    <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden sm:inline">Logout</span>
                 </button>
             </form>
         </div>
     </nav>
 
-    <div class="max-w-5xl mx-auto p-6">
+    <div class="max-w-5xl mx-auto p-4 sm:p-6">
 
         <p class="text-xs text-slate-500 mb-4">
             <i class="fa-solid fa-circle-info mr-1"></i>

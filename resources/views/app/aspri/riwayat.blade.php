@@ -72,7 +72,7 @@
 
                         @if(in_array($document->status, ['DITINJAU', 'PENDING']))
                             <div class="text-right countdown-box" data-created="{{ $document->created_at->toIso8601String() }}">
-                                <p class="text-[10px] text-slate-400 mb-1">Sisa Waktu Batas 24 Jam</p>
+                                <p class="text-[10px] text-slate-400 mb-1 countdown-label">Sisa Waktu Batas 24 Jam</p>
                                 <p class="countdown-text font-bold text-sm text-slate-700">-</p>
                             </div>
                         @endif
@@ -104,16 +104,25 @@
                 const now = new Date();
                 const diff = deadline - now;
                 const textEl = box.querySelector('.countdown-text');
+                const labelEl = box.querySelector('.countdown-label');
 
                 if (diff <= 0) {
-                    textEl.textContent = 'Terlambat';
+                    const overdue = Math.abs(diff);
+                    const hours = Math.floor(overdue / (1000 * 60 * 60));
+                    const minutes = Math.floor((overdue % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((overdue % (1000 * 60)) / 1000);
+                    textEl.textContent = `${hours}j ${minutes}m ${seconds}d`;
                     textEl.className = 'countdown-text font-bold text-sm text-rose-600';
+                    if (labelEl) labelEl.textContent = 'Terlambat';
+                    if (labelEl) labelEl.className = 'text-[10px] text-rose-500 mb-1 font-semibold';
                 } else {
                     const hours = Math.floor(diff / (1000 * 60 * 60));
                     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
                     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
                     textEl.textContent = `${hours}j ${minutes}m ${seconds}d`;
                     textEl.className = 'countdown-text font-bold text-sm ' + (hours < 3 ? 'text-rose-600' : 'text-slate-700');
+                    if (labelEl) labelEl.textContent = 'Sisa Waktu Batas 24 Jam';
+                    if (labelEl) labelEl.className = 'text-[10px] text-slate-400 mb-1';
                 }
             });
         }

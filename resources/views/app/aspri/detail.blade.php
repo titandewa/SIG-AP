@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGAP - Detail Dokumen</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-100 font-sans text-slate-800">
+
+    <!-- Topbar -->
+    <nav class="bg-indigo-900 text-white px-6 py-4 flex justify-between items-center shadow-md">
+        <div class="flex items-center gap-3">
+            <a href="{{ route('app.aspri.dashboard') }}" class="bg-indigo-800 hover:bg-indigo-700 p-2 rounded-lg text-xs font-semibold text-indigo-200 flex items-center gap-1 transition">
+                <i class="fa-solid fa-arrow-left"></i> Kembali
+            </a>
+            <h1 class="font-bold text-lg leading-none border-l border-indigo-800 pl-3">
+                SIGAP_V1 <span class="text-xs text-indigo-300 font-normal">/ Detail Dokumen</span>
+            </h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <span class="bg-indigo-800 text-xs px-3 py-1 rounded-full border border-indigo-700">Role: Aspri / Admin</span>
+        </div>
+    </nav>
+
+    <div class="max-w-3xl mx-auto p-6">
+
+        @if(session('success'))
+            <div class="bg-emerald-50 border border-emerald-300 text-emerald-800 text-sm px-4 py-3 rounded-lg mb-4">
+                <i class="fa-solid fa-circle-check mr-1"></i> {{ session('success') }}
+            </div>
+        @endif
+
+        <!-- Info Dokumen -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-4">
+            <div class="flex justify-between items-start">
+                <div>
+                    <span class="font-bold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider
+                        {{ $document->status === 'DITINJAU' ? 'bg-amber-100 text-amber-800' : '' }}
+                        {{ $document->status === 'PENDING' ? 'bg-amber-100 text-amber-800' : '' }}
+                        {{ $document->status === 'SIAP_TTD' ? 'bg-blue-100 text-blue-800' : '' }}
+                        {{ $document->status === 'DISETUJUI' ? 'bg-emerald-100 text-emerald-800' : '' }}
+                        {{ $document->status === 'DITOLAK' ? 'bg-rose-100 text-rose-800' : '' }}">
+                        {{ $document->status }}
+                    </span>
+                    <h2 class="font-bold text-slate-900 text-lg mt-1">{{ $document->title }}</h2>
+                    <p class="text-xs text-slate-500 mt-1">
+                        No: {{ $document->document_number }} •
+                        Diajukan: {{ $document->created_at->translatedFormat('d F Y, H:i') }}
+                        @if($document->latestVersion)
+                            <br>File: {{ $document->latestVersion->original_filename }}
+                        @endif
+                    </p>
+                </div>
+
+                @if($document->latestVersion)
+                    <a href="{{ asset('storage/' . $document->latestVersion->file_path) }}" target="_blank"
+                        class="text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition shrink-0">
+                        <i class="fa-solid fa-file-pdf mr-1"></i> Lihat PDF
+                    </a>
+                @endif
+            </div>
+
+            @if($document->status === 'DISETUJUI' && $document->signed_file_path)
+                <div class="mt-4 pt-4 border-t border-slate-100">
+                    <a href="{{ asset('storage/' . $document->signed_file_path) }}" target="_blank"
+                        class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition">
+                        <i class="fa-solid fa-download"></i> Download Sertifikat Pengesahan
+                    </a>
+                </div>
+            @endif
+        </div>
+
+        <!-- Status Approval -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-4">
+            <p class="font-semibold text-slate-700 text-sm mb-3">Status Persetujuan Petinggi</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                @foreach($document->approvals as $approval)
+                    <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border
+                        {{ $approval->status === 'MENUNGGU' ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200' }}">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full
+                                {{ $approval->status === 'TERIMA' ? 'bg-emerald-500' : '' }}
+                                {{ $approval->status === 'MENUNGGU' ? 'bg-amber-500 animate-pulse' : '' }}
+                                {{ $approval->status === 'PENDING' ? 'bg-amber-500' : '' }}
+                                {{ $approval->status === 'TOLAK' ? 'bg-rose-500' : '' }}">
+                            </div>
+                            <div>
+                                <p class="font-semibold text-slate-800 text-sm">{{ $approval->user->name ?? 'Petinggi' }}</p>
+                                <p class="text-[10px] {{ $approval->status === 'MENUNGGU' ? 'text-amber-600 font-medium' : 'text-slate-400' }}">
+                                    {{ $approval->status === 'MENUNGGU' ? 'Belum Menanggapi' : 'Terakhir update: '.$approval->updated_at->diffForHumans() }}
+                                </p>
+                            </div>
+                        </div>
+                        <span class="font-bold text-[10px] px-2 py-0.5 rounded
+                            {{ $approval->status === 'TERIMA' ? 'bg-emerald-50 text-emerald-700' : '' }}
+                            {{ $approval->status === 'MENUNGGU' ? 'bg-amber-100 text-amber-800' : '' }}
+                            {{ $approval->status === 'PENDING' ? 'bg-amber-100 text-amber-800' : '' }}
+                            {{ $approval->status === 'TOLAK' ? 'bg-rose-100 text-rose-800' : '' }}">
+                            {{ $approval->status }}
+                        </span>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+
+        <!-- Riwayat Komentar (Chat) -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <p class="font-semibold text-slate-700 text-sm mb-3 flex items-center gap-2">
+                <i class="fa-regular fa-comments text-indigo-500"></i> Riwayat Komentar
+            </p>
+
+            @forelse($document->comments as $comment)
+                <div class="flex gap-3 mb-4">
+                    <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+                        {{ strtoupper(substr($comment->user->name ?? 'P', 0, 1)) }}
+                    </div>
+                    <div class="flex-1 bg-slate-50 border border-slate-200 rounded-xl rounded-tl-none p-3">
+                        <div class="flex justify-between items-center mb-1">
+                            <p class="font-semibold text-xs text-slate-800">{{ $comment->user->name ?? 'Petinggi' }}</p>
+                            <p class="text-[10px] text-slate-400">{{ $comment->created_at->diffForHumans() }}</p>
+                        </div>
+                        <p class="text-sm text-slate-700">{{ $comment->comment }}</p>
+                    </div>
+                </div>
+            @empty
+                <div class="text-center py-8 text-slate-400 text-sm">
+                    <i class="fa-regular fa-comment-dots text-2xl mb-2 block"></i>
+                    Belum ada komentar dari Petinggi.
+                </div>
+            @endforelse
+        </div>
+
+    </div>
+
+</body>
+</html>

@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\PdfSignerController;
 
 /*
 |--------------------------------------------------------------------------
@@ -27,7 +28,7 @@ Route::prefix('demo')->group(function () {
 
 // Public Verification (Bisa diakses publik tanpa login)
 Route::get('/verify/{hash}', [DocumentController::class, 'verifyDocument'])->name('public.verify');
-
+Route::get('/sign-pdf', [PdfSignerController::class, 'index']);
 /*
 |--------------------------------------------------------------------------
 | 2. ROUTE APLIKASI UTAMA (Sistem Eksperimen Real)
@@ -62,18 +63,25 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/app/aspri/reminder/{id}', [DocumentController::class, 'sendReminder'])->name('aspri.reminder');
         Route::get('/app/aspri/dashboard', [DocumentController::class, 'indexAspri'])->name('app.aspri.dashboard');
         Route::get('/app/aspri/riwayat', [DocumentController::class, 'riwayatAspri'])->name('aspri.riwayat');
+        Route::get('/app/aspri/dokumen/{id}', [DocumentController::class, 'detailAspri'])->name('aspri.detail');
     });
+
+    // Route khusus Petinggi
 
     Route::middleware(['role:petinggi'])->group(function () {
         Route::get('/app/petinggi/dashboard', [DocumentController::class, 'indexPetinggi'])
             ->name('app.petinggi.dashboard');
         Route::post('/app/petinggi/review/{id}', [DocumentController::class, 'reviewPetinggi'])->name('petinggi.review');
+        Route::get('/app/petinggi/riwayat', [DocumentController::class, 'riwayatPetinggi'])->name('petinggi.riwayat');
     });
 
     // Route khusus Dirut
     Route::middleware(['role:dirut'])->group(function () {
         Route::get('/app/dirut/dashboard', [DocumentController::class, 'indexDirut'])->name('app.dirut.dashboard');
         Route::post('/app/dirut/sign/{id}', [DocumentController::class, 'signDirut'])->name('dirut.sign');
+        Route::get('/app/dirut/signature', [DocumentController::class, 'showSignaturePage'])->name('dirut.signature.page');
+        Route::post('/app/dirut/signature', [DocumentController::class, 'saveSignature'])->name('dirut.signature.save');
+        Route::get('/app/dirut/ttd/{id}', [DocumentController::class, 'showTtdEditor'])->name('dirut.ttd.editor');
     });
 
 });

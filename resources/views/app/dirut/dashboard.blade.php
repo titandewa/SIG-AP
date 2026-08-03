@@ -26,6 +26,9 @@
             <div class="w-8 h-8 rounded-full bg-amber-500 text-slate-900 flex items-center justify-center font-extrabold">
                 {{ strtoupper(substr(auth()->user()->name ?? 'D', 0, 1)) }}
             </div>
+            <a href="{{ route('dirut.signature.page') }}" class="bg-indigo-900 hover:bg-indigo-800 text-xs px-3 py-1.5 rounded-lg border border-indigo-700 flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-signature"></i> Atur TTD
+            </a>
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
                 <button type="submit" class="bg-slate-800 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
@@ -54,85 +57,55 @@
     <!-- Content Area -->
     <div class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <!-- Kolom Kiri: Document Preview & Auto-Stamp Demo -->
+        <!-- Kolom Kiri: Document Preview (mengikuti dokumen yang dipilih di kanan) -->
         <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col h-[82vh]">
             <!-- Header Doc -->
             <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl">
                 <div>
-                    <h2 class="font-bold text-slate-900 text-sm">
+                    <h2 id="previewTitle" class="font-bold text-slate-900 text-sm">
                         {{ $readyToSignDocuments->first()->title ?? 'Belum ada dokumen' }}
                     </h2>
                     <p class="text-xs text-slate-500">
-                        Nomor: {{ $readyToSignDocuments->first()->document_number ?? '-' }} • Status:
+                        Nomor: <span id="previewNumber">{{ $readyToSignDocuments->first()->document_number ?? '-' }}</span> • Status:
                         <span class="text-emerald-600 font-bold">100% Disetujui Petinggi</span>
                     </p>
                 </div>
-                <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+                <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 shrink-0">
                     <i class="fa-solid fa-shield-check"></i> Siap TTD
                 </span>
             </div>
 
-            <!-- PDF Real Preview dengan Live Auto-Stamp Overlay -->
+            <!-- PDF Preview -->
             <div class="flex-1 bg-slate-200 overflow-hidden relative flex justify-center">
                 @if($readyToSignDocuments->first() && $readyToSignDocuments->first()->latestVersion)
                     <iframe
+                        id="previewFrame"
                         src="{{ asset('storage/' . $readyToSignDocuments->first()->latestVersion->file_path) }}"
                         class="w-full h-full border-0"
                         title="Preview Dokumen SK">
                     </iframe>
-
-                    <!-- Watermark Overlay Disetujui & Sah -->
-                    <div id="signedBadge" class="hidden absolute top-8 right-8 border-4 border-emerald-600 text-emerald-600 font-extrabold text-lg px-4 py-1 rounded-lg rotate-12 opacity-80 uppercase tracking-widest bg-white/70 pointer-events-none">
-                        DISETUJUI & SAH
-                    </div>
-
-                    <!-- Overlay Stempel TTD Digital -->
-                    <div id="positionWrapper" class="hidden absolute bottom-8 left-8 right-8 flex justify-center pointer-events-none">
-                        <div id="ttdContainer" class="text-center border-2 border-emerald-500 p-3 rounded-xl w-64 bg-emerald-50/90 shadow-md transition-all duration-500">
-                            <p class="text-[9px] text-slate-500 font-semibold mb-1">Ditandatangani secara Digital oleh:</p>
-                            <div class="my-1 py-1 font-serif text-lg font-bold text-slate-900 tracking-widest border-y border-emerald-300 italic">
-                                Direktur Utama
-                            </div>
-                            <div class="flex justify-center items-center gap-2 mt-2 bg-white p-1.5 rounded border border-emerald-200">
-                                <img id="qrImg" src="" alt="QR Code" class="w-12 h-12">
-                                <div class="text-[8px] text-left text-slate-600 leading-tight">
-                                    <strong class="text-emerald-700">SK SAH & TERVERIFIKASI</strong><br>
-                                    <span id="qrDocId"></span><br>
-                                    Tgl: {{ now()->translatedFormat('d F Y') }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 @else
-                    <div class="flex items-center justify-center h-full text-slate-400 text-sm">
+                    <div id="previewEmpty" class="flex items-center justify-center h-full text-slate-400 text-sm">
                         <i class="fa-solid fa-file-circle-xmark text-3xl mr-2"></i> Tidak ada dokumen yang siap ditandatangani.
                     </div>
                 @endif
             </div>
         </div>
 
-        <!-- Kolom Kanan: Panel Keputusan Dirut & Dynamic List -->
+        <!-- Kolom Kanan: List Dokumen Siap TTD -->
         <div class="bg-slate-900 rounded-2xl shadow-sm border border-slate-800 p-5 flex flex-col h-[82vh] overflow-y-auto">
-            
+
             <div class="space-y-4">
                 <h3 class="font-bold text-white text-sm border-b border-slate-800 pb-3 flex items-center gap-2">
                     <i class="fa-solid fa-file-signature text-amber-500"></i> Dokumen Siap Disahkan
                 </h3>
 
-                <!-- Opsi Posisi TTD -->
-                <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-xs">
-                    <label class="block font-bold text-slate-300 mb-1.5">Posisi Penempelan Stempel TTD:</label>
-                    <select id="stampPosition" onchange="updateStampPosition(this.value)" class="w-full p-2 bg-slate-900 text-white border border-slate-700 rounded-lg text-xs outline-none focus:border-indigo-500">
-                        <option value="center">Halaman Terakhir - Tengah Bawah (Default)</option>
-                        <option value="right">Halaman Terakhir - Kanan Bawah</option>
-                        <option value="left">Halaman Terakhir - Kiri Bawah</option>
-                    </select>
-                </div>
-
-                <!-- List Dokumen Siap TTD (Dynamic Loop) -->
+                <!-- List Dokumen Siap TTD (Dynamic Loop, klik untuk preview) -->
                 <div class="space-y-4">
                     @forelse($readyToSignDocuments as $doc)
-                        <div class="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-3">
+                        <div class="doc-card p-4 bg-slate-950/60 border rounded-xl space-y-3 cursor-pointer transition {{ $loop->first ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-800' }}"
+                            data-id="{{ $doc->id }}"
+                            onclick="selectDocument({{ $doc->id }})">
                             <div>
                                 <h4 class="font-bold text-white text-sm">{{ $doc->title }}</h4>
                                 <p class="text-[11px] text-slate-400 mt-0.5">No: {{ $doc->document_number }}</p>
@@ -142,15 +115,11 @@
                                 </div>
                             </div>
 
-                            <!-- Form Sahkan & TTD Dirut -->
-                            <form action="{{ route('dirut.sign', $doc->id) }}" method="POST" onsubmit="eksekusiTTDLocal(event, '{{ $doc->document_number }}')">
-                                @csrf
-                                <input type="hidden" name="position" id="formPositionInput_{{ $doc->id }}" value="center">
-                                
-                                <button type="submit" class="w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition flex items-center justify-center gap-2 shadow-md shadow-indigo-900/50">
-                                    <i class="fa-solid fa-stamp"></i> Sahkan & TTD Digital
-                                </button>
-                            </form>
+                            <!-- Lanjut ke editor untuk drag & drop TTD -->
+                            <a href="{{ route('dirut.ttd.editor', $doc->id) }}" onclick="event.stopPropagation()"
+                                class="w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition flex items-center justify-center gap-2 shadow-md shadow-indigo-900/50">
+                                <i class="fa-solid fa-stamp"></i> Sahkan & TTD Digital
+                            </a>
                         </div>
                     @empty
                         <div class="text-center py-10 bg-slate-950/40 rounded-xl border border-slate-800">
@@ -160,49 +129,47 @@
                     @endforelse
                 </div>
             </div>
-
-            <!-- Tombol Verifikasi Publik -->
-            <div class="mt-auto pt-4 border-t border-slate-800">
-                <a id="btnVerify" href="#" target="_blank" class="hidden w-full bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold py-2.5 rounded-xl text-xs text-center block transition border border-slate-700">
-                    <i class="fa-solid fa-qrcode mr-1"></i> Simulasi Scan QR Verifikasi Publik
-                </a>
-            </div>
-
         </div>
 
     </div>
 
-    <!-- Script Handling Posisi & Visual Auto-Stamp -->
-    <script>
-        function updateStampPosition(pos) {
-            const wrapper = document.getElementById('positionWrapper');
-            document.querySelectorAll('input[name="position"]').forEach(input => {
-                input.value = pos;
-            });
-
-            if (!wrapper) return;
-
-            if (pos === 'left') {
-                wrapper.className = wrapper.className.replace(/justify-\S+/, 'justify-start');
-            } else if (pos === 'right') {
-                wrapper.className = wrapper.className.replace(/justify-\S+/, 'justify-end');
-            } else {
-                wrapper.className = wrapper.className.replace(/justify-\S+/, 'justify-center');
-            }
+    @php
+        $readyDocumentsForJs = [];
+        foreach ($readyToSignDocuments as $d) {
+            $readyDocumentsForJs[] = [
+                'id' => $d->id,
+                'title' => $d->title,
+                'document_number' => $d->document_number,
+                'file_url' => $d->latestVersion ? asset('storage/' . $d->latestVersion->file_path) : null,
+            ];
         }
+    @endphp
 
-        function eksekusiTTDLocal(e, docNumber) {
-            const badge = document.getElementById('signedBadge');
-            const wrapper = document.getElementById('positionWrapper');
-            const btnVerify = document.getElementById('btnVerify');
-            const qrImg = document.getElementById('qrImg');
-            const qrDocId = document.getElementById('qrDocId');
+    <!-- Script: switch preview kiri sesuai dokumen yang diklik -->
+    <script>
+        const readyDocuments = {!! json_encode($readyDocumentsForJs) !!};
 
-            if (badge) badge.classList.remove('hidden');
-            if (wrapper) wrapper.classList.remove('hidden');
-            if (qrDocId) qrDocId.textContent = 'No: ' + docNumber;
-            if (qrImg) qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=' + encodeURIComponent(docNumber);
-            if (btnVerify) btnVerify.classList.remove('hidden');
+        function selectDocument(id) {
+            const doc = readyDocuments.find(d => d.id === id);
+            if (!doc) return;
+
+            const titleEl = document.getElementById('previewTitle');
+            const numberEl = document.getElementById('previewNumber');
+            if (titleEl) titleEl.textContent = doc.title;
+            if (numberEl) numberEl.textContent = doc.document_number;
+
+            const iframe = document.getElementById('previewFrame');
+            if (iframe && doc.file_url) {
+                iframe.src = doc.file_url;
+            }
+
+            document.querySelectorAll('.doc-card').forEach(card => {
+                const active = parseInt(card.dataset.id) === id;
+                card.classList.toggle('border-indigo-500', active);
+                card.classList.toggle('ring-1', active);
+                card.classList.toggle('ring-indigo-500', active);
+                card.classList.toggle('border-slate-800', !active);
+            });
         }
     </script>
 

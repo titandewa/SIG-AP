@@ -55,13 +55,36 @@
             font-size: 14px;
             margin: 0;
         }
-        .qr-section {
+        .signature-section {
             text-align: center;
             margin-top: 25px;
+            padding-top: 15px;
+        }
+        .signature-section p.label {
+            font-size: 10px;
+            color: #64748b;
+            margin: 0 0 5px;
+        }
+        .signature-section img {
+            height: 60px;
+            margin: 5px 0;
+        }
+        .signature-section p.name {
+            font-size: 12px;
+            font-weight: bold;
+            color: #1e293b;
+            border-top: 1px solid #94a3b8;
+            display: inline-block;
+            padding-top: 4px;
+            margin-top: 4px;
+        }
+        .qr-section {
+            text-align: center;
+            margin-top: 20px;
         }
         .qr-section img {
-            width: 120px;
-            height: 120px;
+            width: 110px;
+            height: 110px;
         }
         .qr-section p {
             font-size: 9px;
@@ -106,11 +129,14 @@
             <td>Tanggal Disahkan</td>
             <td>{{ now()->translatedFormat('d F Y, H:i') }} WIB</td>
         </tr>
-        <tr>
-            <td>Ditandatangani oleh</td>
-            <td>Direktur Utama</td>
-        </tr>
     </table>
+
+    <div class="signature-section">
+        <p class="label">Ditandatangani secara digital oleh:</p>
+        <img src="data:image/png;base64,{{ $signatureBase64 }}" alt="Tanda Tangan">
+        <br>
+        <p class="name">{{ $dirutName }}<br><span style="font-weight: normal; font-size: 10px;">Direktur Utama</span></p>
+    </div>
 
     <div class="qr-section">
         <img src="data:image/png;base64,{{ $qrBase64 }}" alt="QR Verifikasi">

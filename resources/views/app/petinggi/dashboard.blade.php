@@ -47,20 +47,21 @@
     <!-- Content Area -->
     <div class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <!-- Kolom Kiri: Document Viewer (PDF Real) -->
+        <!-- Kolom Kiri: Document Viewer (mengikuti dokumen yang dipilih di kanan) -->
         <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col h-[82vh]">
             <!-- Header Doc -->
             <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl">
                 <div>
-                    <h2 class="font-bold text-slate-900 text-sm">
+                    <h2 id="previewTitle" class="font-bold text-slate-900 text-sm">
                         {{ $approvals->first()->document->title ?? 'Belum ada dokumen' }}
                     </h2>
                     <p class="text-xs text-slate-500">
-                        No: {{ $approvals->first()->document->document_number ?? '-' }} • Pengaju: {{ $approvals->first()->document->user->name ?? '-' }}
+                        No: <span id="previewNumber">{{ $approvals->first()->document->document_number ?? '-' }}</span> • Pengaju:
+                        <span id="previewPengaju">{{ $approvals->first()->document->user->name ?? '-' }}</span>
                     </p>
                 </div>
                 @if($approvals->first())
-                <span class="bg-indigo-50 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded">
+                <span id="previewVersion" class="bg-indigo-50 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded shrink-0">
                     Versi {{ $approvals->first()->document->latestVersion->version_number ?? '1' }}
                 </span>
                 @endif
@@ -70,12 +71,13 @@
             <div class="flex-1 bg-slate-200 overflow-hidden flex justify-center">
                 @if($approvals->first() && $approvals->first()->document->latestVersion)
                     <iframe
+                        id="previewFrame"
                         src="{{ asset('storage/' . $approvals->first()->document->latestVersion->file_path) }}"
                         class="w-full h-full border-0"
                         title="Preview Dokumen SK">
                     </iframe>
                 @else
-                    <div class="flex items-center justify-center h-full text-slate-400 text-sm">
+                    <div id="previewEmpty" class="flex items-center justify-center h-full text-slate-400 text-sm">
                         <i class="fa-solid fa-file-circle-xmark text-3xl mr-2"></i> Tidak ada berkas untuk ditampilkan.
                     </div>
                 @endif
@@ -91,7 +93,9 @@
             <!-- Dynamic Approval List -->
             <div class="space-y-4 flex-1">
                 @forelse($approvals as $app)
-                    <div class="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-3">
+                    <div class="doc-card p-4 bg-slate-950/60 border rounded-xl space-y-3 cursor-pointer transition {{ $loop->first ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-800' }}"
+                        data-id="{{ $app->document_id }}"
+                        onclick="selectDocument({{ $app->document_id }})">
                         <div class="flex justify-between items-start">
                             <div>
                                 <h4 class="font-bold text-white text-sm">{{ $app->document->title }}</h4>
@@ -99,7 +103,7 @@
                                     No: {{ $app->document->document_number }} | Diajukan oleh: {{ $app->document->user->name ?? 'Aspri' }}
                                 </p>
                             </div>
-                            <span class="px-2.5 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider
+                            <span class="px-2.5 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider shrink-0
                                 {{ $app->status === 'TERIMA' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : '' }}
                                 {{ $app->status === 'PENDING' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : '' }}
                                 {{ $app->status === 'TOLAK' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : '' }}
@@ -124,13 +128,13 @@
                         @endif
 
                         <!-- Form Aksi Review Petinggi -->
-                        <form action="{{ route('petinggi.review', $app->document_id) }}" method="POST" class="space-y-3 pt-2">
+                        <form action="{{ route('petinggi.review', $app->document_id) }}" method="POST" class="space-y-3 pt-2" onclick="event.stopPropagation()">
                             @csrf
                             <div>
                                 <label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Catatan / Komentar Review</label>
                                 <textarea name="comment" rows="3" placeholder="Tulis catatan/catatan revisi jika ada..." class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition resize-none"></textarea>
                             </div>
-                            
+
                             <div class="grid grid-cols-3 gap-2 pt-1">
                                 <button type="submit" name="status" value="TERIMA" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition text-center flex items-center justify-center gap-1 shadow-sm">
                                     <i class="fa-solid fa-check"></i> Setujui
@@ -154,6 +158,52 @@
         </div>
 
     </div>
+
+    @php
+        $approvalsForJs = [];
+        foreach ($approvals as $app) {
+            $approvalsForJs[] = [
+                'id' => $app->document_id,
+                'title' => $app->document->title,
+                'document_number' => $app->document->document_number,
+                'pengaju' => $app->document->user->name ?? '-',
+                'version_number' => $app->document->latestVersion->version_number ?? '1',
+                'file_url' => $app->document->latestVersion ? asset('storage/' . $app->document->latestVersion->file_path) : null,
+            ];
+        }
+    @endphp
+
+    <!-- Script: switch preview kiri sesuai dokumen yang diklik -->
+    <script>
+        const reviewDocuments = {!! json_encode($approvalsForJs) !!};
+
+        function selectDocument(id) {
+            const doc = reviewDocuments.find(d => d.id === id);
+            if (!doc) return;
+
+            const titleEl = document.getElementById('previewTitle');
+            const numberEl = document.getElementById('previewNumber');
+            const pengajuEl = document.getElementById('previewPengaju');
+            const versionEl = document.getElementById('previewVersion');
+            if (titleEl) titleEl.textContent = doc.title;
+            if (numberEl) numberEl.textContent = doc.document_number;
+            if (pengajuEl) pengajuEl.textContent = doc.pengaju;
+            if (versionEl) versionEl.textContent = 'Versi ' + doc.version_number;
+
+            const iframe = document.getElementById('previewFrame');
+            if (iframe && doc.file_url) {
+                iframe.src = doc.file_url;
+            }
+
+            document.querySelectorAll('.doc-card').forEach(card => {
+                const active = parseInt(card.dataset.id) === id;
+                card.classList.toggle('border-indigo-500', active);
+                card.classList.toggle('ring-1', active);
+                card.classList.toggle('ring-indigo-500', active);
+                card.classList.toggle('border-slate-800', !active);
+            });
+        }
+    </script>
 
 </body>
 </html>

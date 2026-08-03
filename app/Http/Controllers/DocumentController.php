@@ -51,9 +51,37 @@ class DocumentController extends Controller
     public function indexAspri()
     {
         $petinggiList = User::where('role', 'petinggi')->get();
-        $documents = Document::with(['versions', 'approvals.user', 'latestVersion'])->latest()->get();
+
+        $documents = Document::with(['latestVersion', 'approvals.user', 'comments'])
+            ->where('user_id', Auth::id())
+            ->whereIn('status', ['DITINJAU', 'PENDING', 'SIAP_TTD'])
+            ->latest()
+            ->get();
 
         return view('app.aspri.dashboard', compact('petinggiList', 'documents'));
+    }
+
+    public function detailAspri($id)
+    {
+        $document = Document::with(['latestVersion', 'approvals.user', 'comments.user'])
+            ->where('user_id', Auth::id())
+            ->findOrFail($id);
+
+        // Tandai semua komentar di dokumen ini sebagai sudah dibaca
+        $document->comments()->update(['is_read' => true]);
+
+        return view('app.aspri.detail', compact('document'));
+    }
+
+    public function listAktifAspri()
+    {
+        $documents = Document::with(['latestVersion', 'approvals.user'])
+            ->where('user_id', Auth::id())
+            ->whereIn('status', ['DITINJAU', 'PENDING', 'SIAP_TTD'])
+            ->latest()
+            ->get();
+
+        return view('app.aspri.list-aktif', compact('documents'));
     }
 
     public function riwayatAspri(Request $request)
@@ -84,6 +112,22 @@ class DocumentController extends Controller
             ->get();
 
         return view('app.petinggi.dashboard', compact('approvals'));
+    }
+
+    public function riwayatPetinggi(Request $request)
+    {
+        $userId = auth()->id();
+
+        $query = DocumentApproval::with(['document.user', 'document.latestVersion'])
+            ->where('user_id', $userId);
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $approvals = $query->latest('updated_at')->get();
+
+        return view('app.petinggi.riwayat', compact('approvals'));
     }
 
     // Dashboard Dirut Real
@@ -236,7 +280,7 @@ class DocumentController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | 3. AUTO-SEND (BACKEND)
+    | AUTO-SEND (BACKEND)
     |--------------------------------------------------------------------------
     */
 
@@ -295,7 +339,8 @@ class DocumentController extends Controller
     public function signDirut(Request $request, $id)
     {
         $request->validate([
-            'position' => 'nullable|string|in:center,left,right',
+            'signed_pdf' => 'required|file|mimes:pdf',
+            'qr_hash' => 'required|string',
         ]);
 
         $doc = Document::with('latestVersion')->findOrFail($id);
@@ -304,50 +349,64 @@ class DocumentController extends Controller
             return redirect()->back()->with('error', 'Dokumen belum mendapat persetujuan 100% dari Petinggi!');
         }
 
-        $originalPdfPath = storage_path('app/public/' . $doc->latestVersion->file_path);
+        $signedFile = $request->file('signed_pdf');
+        $signedFileName = 'signed_' . $doc->document_number . '_' . time() . '.pdf';
+        $signedRelativePath = 'documents/signed/' . $signedFileName;
+        Storage::disk('public')->put($signedRelativePath, file_get_contents($signedFile));
 
-        // 1. Hitung hash dari file asli
-        $fileHash = hash_file('sha256', $originalPdfPath);
+        $fullPath = storage_path('app/public/' . $signedRelativePath);
+        $fileHash = hash_file('sha256', $fullPath);
 
-        // 2. Generate kode unik verifikasi
-        $qrHash = 'SIGAP-' . date('Ymd') . '-' . Str::random(8);
-
-        // 3. Generate QR Code
-        $qrCode = new QrCode(route('public.verify', $qrHash));
-        $writer = new PngWriter();
-        $qrResult = $writer->write($qrCode);
-        $qrBase64 = base64_encode($qrResult->getString());
-
-        // 4. Buat halaman sertifikat terpisah (PDF baru, bukan gabungan PDF asli)
-        $pdf = new \Mpdf\Mpdf();
-        $html = view('certificate', [
-            'document' => $doc,
-            'qrBase64' => $qrBase64,
-            'position' => $request->position ?? 'center',
-        ])->render();
-        $pdf->WriteHTML($html);
-
-        $certFileName = 'certificate_' . $doc->document_number . '_' . time() . '.pdf';
-        $certRelativePath = 'documents/certificates/' . $certFileName;
-        $certFullPath = storage_path('app/public/' . $certRelativePath);
-
-        if (!file_exists(dirname($certFullPath))) {
-            mkdir(dirname($certFullPath), 0755, true);
-        }
-
-        $pdf->Output($certFullPath, \Mpdf\Output\Destination::FILE);
-
-        // 5. Update database
         $doc->update([
             'status' => 'DISETUJUI',
-            'qr_code_hash' => $qrHash,
-            'stamp_position' => $request->position ?? 'center',
+            'qr_code_hash' => $request->qr_hash,
             'signed_at' => now(),
-            'signed_file_path' => $certRelativePath,
+            'signed_file_path' => $signedRelativePath,
             'file_hash' => $fileHash,
         ]);
 
-        return redirect()->back()->with('success', 'Dokumen SK berhasil ditandatangani dan disahkan!');
+        return redirect()->route('app.dirut.dashboard')->with('success', 'Dokumen SK berhasil ditandatangani dan disahkan!');
+    }
+
+    public function showSignaturePage()
+    {
+        return view('app.dirut.signature');
+    }
+
+    public function saveSignature(Request $request)
+    {
+        $request->validate([
+            'signature_image' => 'required|string',
+        ]);
+
+        // Data base64 dari canvas: "data:image/png;base64,iVBORw0KG..."
+        $imageData = $request->signature_image;
+        $imageData = str_replace('data:image/png;base64,', '', $imageData);
+        $imageData = str_replace(' ', '+', $imageData);
+        $imageBytes = base64_decode($imageData);
+
+        $fileName = 'signatures/dirut_' . Auth::id() . '_' . time() . '.png';
+        Storage::disk('public')->put($fileName, $imageBytes);
+
+        $user = Auth::user();
+        $user->update(['signature_path' => $fileName]);
+
+        return redirect()->back()->with('success', 'Tanda tangan berhasil disimpan!');
+    }
+
+    public function showTtdEditor($id)
+    {
+        $document = Document::with('latestVersion')->findOrFail($id);
+
+        if ($document->status !== 'SIAP_TTD') {
+            return redirect()->back()->with('error', 'Dokumen ini belum siap untuk ditandatangani.');
+        }
+
+        if (!Auth::user()->signature_path) {
+            return redirect()->route('dirut.signature.page')->with('error', 'Silakan atur tanda tangan Anda terlebih dahulu.');
+        }
+
+        return view('app.dirut.ttd-editor', compact('document'));
     }
 
 }

@@ -108,6 +108,9 @@ class DocumentController extends Controller
                 'document.comments.user'
             ])
             ->where('user_id', Auth::id())
+            ->whereHas('document', function ($q) {
+                $q->where('status', 'DITINJAU');
+            })
             ->latest()
             ->get();
 
@@ -205,7 +208,37 @@ class DocumentController extends Controller
             return $document;
         });
 
+        // Kirim WA notif ke semua petinggi yang jadi reviewer
+        $document->load('approvals.user');
+        foreach ($document->approvals as $approval) {
+            $this->sendWaPengajuanBaru($approval->user, $document);
+        }
+
         return redirect()->back()->with('success', 'SK berhasil diajukan dan diteruskan ke para Petinggi!');
+    }
+
+    private function sendWaPengajuanBaru($user, $document)
+    {
+        if (!$user || !$user->phone) {
+            return;
+        }
+
+        $nomor = $this->formatNomorWA($user->phone);
+        $link = route('app.petinggi.dashboard');
+        $tanggalUpload = $document->created_at->translatedFormat('d F Y, H:i');
+
+        $pesan = "Halo {$user->name},\n\nAda pengajuan SK baru yang perlu Anda tinjau:\n\n"
+            . "Judul: {$document->title}\n"
+            . "No: {$document->document_number}\n"
+            . "Diajukan: {$tanggalUpload}\n\n"
+            . "Silakan tinjau melalui link berikut:\n{$link}\n\nTerima kasih.";
+
+        Http::withHeaders([
+            'Authorization' => config('services.fonnte.token'),
+        ])->post('https://api.fonnte.com/send', [
+            'target' => $nomor,
+            'message' => $pesan,
+        ]);
     }
 
     // Review SK oleh Petinggi (Terima / Pending / Tolak)
@@ -221,6 +254,16 @@ class DocumentController extends Controller
         $approval = DocumentApproval::where('document_id', $id)
             ->where('user_id', $userId)
             ->firstOrFail();
+
+        // Guard: dokumen sudah diputuskan (ditolak/revisi/disetujui semua) oleh proses lain
+        if ($approval->document->status !== 'DITINJAU') {
+            return redirect()->back()->with('error', 'Dokumen ini sudah tidak dalam status ditinjau, keputusan tidak disimpan.');
+        }
+
+        // Guard: kamu sudah pernah merespon approval ini
+        if ($approval->status !== 'MENUNGGU') {
+            return redirect()->back()->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
+        }
 
         $approval->update(['status' => $request->status]);
 
@@ -306,6 +349,9 @@ class DocumentController extends Controller
         }
 
         $terkirim = [];
+        $link = route('app.petinggi.dashboard');
+        $tanggalUpload = $document->created_at->translatedFormat('d F Y, H:i');
+        $lamaNganggur = $document->created_at->diffForHumans(null, true); // contoh: "3 jam"
 
         foreach ($pendingApprovals as $approval) {
             $user = $approval->user;
@@ -318,8 +364,9 @@ class DocumentController extends Controller
 
             $pesan = "Halo {$user->name},\n\nAnda memiliki pengajuan SK yang menunggu peninjauan:\n\n"
                 . "Judul: {$document->title}\n"
-                . "No: {$document->document_number}\n\n"
-                . "Mohon segera ditinjau melalui sistem SIGAP_V1.\n\nTerima kasih.";
+                . "No: {$document->document_number}\n"
+                . "Diajukan: {$tanggalUpload} (sudah {$lamaNganggur})\n\n"
+                . "Mohon segera ditinjau melalui link berikut:\n{$link}\n\nTerima kasih.";
 
             Http::withHeaders([
                 'Authorization' => config('services.fonnte.token'),
@@ -418,6 +465,31 @@ class DocumentController extends Controller
         }
 
         return view('app.dirut.ttd-editor', compact('document'));
+    }
+
+    public function addComment(Request $request, $id)
+    {
+        $request->validate([
+            'comment' => 'required|string|max:2000',
+        ]);
+
+        $document = Document::with('approvals')->findOrFail($id);
+        $userId = Auth::id();
+
+        $isOwner = $document->user_id === $userId;
+        $isReviewer = $document->approvals->contains('user_id', $userId);
+
+        if (!$isOwner && !$isReviewer) {
+            abort(403, 'Kamu tidak punya akses ke diskusi dokumen ini.');
+        }
+
+        Comment::create([
+            'document_id' => $document->id,
+            'user_id' => $userId,
+            'comment' => $request->comment,
+        ]);
+
+        return redirect()->back()->with('success', 'Pesan terkirim.');
     }
 
 }

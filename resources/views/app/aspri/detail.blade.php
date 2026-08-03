@@ -105,31 +105,48 @@
             </div>
         </div>
 
-        <!-- Riwayat Komentar (Chat) -->
+        <!-- Chat Diskusi Dokumen -->
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
             <p class="font-semibold text-slate-700 text-sm mb-3 flex items-center gap-2">
-                <i class="fa-regular fa-comments text-indigo-500"></i> Riwayat Komentar
+                <i class="fa-regular fa-comments text-indigo-500"></i> Diskusi Dokumen
             </p>
 
-            @forelse($document->comments as $comment)
-                <div class="flex gap-3 mb-4">
-                    <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
-                        {{ strtoupper(substr($comment->user->name ?? 'P', 0, 1)) }}
-                    </div>
-                    <div class="flex-1 bg-slate-50 border border-slate-200 rounded-xl rounded-tl-none p-3">
-                        <div class="flex justify-between items-center mb-1">
-                            <p class="font-semibold text-xs text-slate-800">{{ $comment->user->name ?? 'Petinggi' }}</p>
-                            <p class="text-[10px] text-slate-400">{{ $comment->created_at->diffForHumans() }}</p>
+            <div class="max-h-96 overflow-y-auto mb-4 pr-1">
+                @forelse($document->comments as $comment)
+                    @php $isMine = $comment->user_id === auth()->id(); @endphp
+                    <div class="flex gap-2 mb-4 {{ $isMine ? 'flex-row-reverse' : '' }}">
+                        <div class="w-8 h-8 rounded-full {{ $isMine ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-700' }} flex items-center justify-center font-bold text-xs shrink-0">
+                            {{ strtoupper(substr($comment->user->name ?? 'P', 0, 1)) }}
                         </div>
-                        <p class="text-sm text-slate-700">{{ $comment->comment }}</p>
+                        <div class="max-w-[75%] {{ $isMine ? 'bg-indigo-600 text-white rounded-xl rounded-tr-none' : 'bg-slate-50 border border-slate-200 text-slate-700 rounded-xl rounded-tl-none' }} p-3">
+                            <div class="flex justify-between items-center gap-3 mb-1">
+                                <p class="font-semibold text-xs {{ $isMine ? 'text-indigo-100' : 'text-slate-800' }}">
+                                    {{ $isMine ? 'Kamu' : ($comment->user->name ?? 'Petinggi') }}
+                                </p>
+                                <p class="text-[10px] {{ $isMine ? 'text-indigo-200' : 'text-slate-400' }} shrink-0">
+                                    {{ $comment->created_at->diffForHumans() }}
+                                </p>
+                            </div>
+                            <p class="text-sm">{{ $comment->comment }}</p>
+                        </div>
                     </div>
-                </div>
-            @empty
-                <div class="text-center py-8 text-slate-400 text-sm">
-                    <i class="fa-regular fa-comment-dots text-2xl mb-2 block"></i>
-                    Belum ada komentar dari Petinggi.
-                </div>
-            @endforelse
+                @empty
+                    <div class="text-center py-8 text-slate-400 text-sm">
+                        <i class="fa-regular fa-comment-dots text-2xl mb-2 block"></i>
+                        Belum ada diskusi untuk dokumen ini.
+                    </div>
+                @endforelse
+            </div>
+
+            <!-- Form Kirim Pesan -->
+            <form action="{{ route('document.comment', $document->id) }}" method="POST" class="flex items-center gap-2 pt-3 border-t border-slate-100">
+                @csrf
+                <input type="text" name="comment" placeholder="Tulis pesan ke Petinggi..." required autocomplete="off"
+                    class="flex-1 border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                <button type="submit" class="shrink-0 w-10 h-10 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-paper-plane text-sm"></i>
+                </button>
+            </form>
         </div>
 
     </div>

@@ -118,37 +118,55 @@
                             </span>
                         </div>
 
-                        <!-- Riwayat Komentar (Transparan Antar Petinggi) -->
+                        <!-- Chat Diskusi per Dokumen (Transparan Antar Petinggi & Aspri) -->
                         @if($app->document->comments->count() > 0)
-                            <div class="bg-slate-800/60 rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto">
-                                <p class="text-[10px] font-semibold text-slate-400 uppercase mb-1">Riwayat Komentar</p>
+                            <div class="bg-slate-800/60 rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
                                 @foreach($app->document->comments as $comment)
-                                    <div class="text-[11px] border-l-2 border-indigo-500 pl-2">
-                                        <p class="text-slate-200">{{ $comment->comment }}</p>
-                                        <p class="text-slate-500 mt-0.5">
-                                            — {{ $comment->user->name ?? 'Petinggi' }} • {{ $comment->created_at->diffForHumans() }}
-                                        </p>
+                                    @php $isMine = $comment->user_id === auth()->id(); @endphp
+                                    <div class="flex {{ $isMine ? 'justify-end' : 'justify-start' }}">
+                                        <div class="max-w-[80%] {{ $isMine ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-100' }} rounded-lg px-3 py-2">
+                                            <p class="text-[11px] leading-snug">{{ $comment->comment }}</p>
+                                            <p class="text-[9px] mt-1 {{ $isMine ? 'text-indigo-200' : 'text-slate-400' }}">
+                                                {{ $isMine ? 'Kamu' : ($comment->user->name ?? 'User') }} • {{ $comment->created_at->diffForHumans() }}
+                                            </p>
+                                        </div>
                                     </div>
                                 @endforeach
                             </div>
                         @endif
 
+                        <!-- Form Kirim Pesan Chat (terpisah dari form keputusan review) -->
+                        <form action="{{ route('document.comment', $app->document_id) }}" method="POST" class="flex items-center gap-2" onclick="event.stopPropagation()">
+                            @csrf
+                            <input type="text" name="comment" placeholder="Tulis pesan..." required autocomplete="off"
+                                class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
+                            <button type="submit" class="shrink-0 w-9 h-9 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition">
+                                <i class="fa-solid fa-paper-plane text-xs"></i>
+                            </button>
+                        </form>
+
                         <!-- Form Aksi Review Petinggi -->
                         <form action="{{ route('petinggi.review', $app->document_id) }}" method="POST" class="space-y-3 pt-2" onclick="event.stopPropagation()">
                             @csrf
                             <div>
-                                <label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Catatan / Komentar Review</label>
-                                <textarea name="comment" rows="3" placeholder="Tulis catatan/catatan revisi jika ada..." class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition resize-none"></textarea>
+                                <label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Catatan Resmi Keputusan (opsional)</label>
+                                <textarea name="comment" rows="2" placeholder="Catatan resmi bersama keputusan Terima/Revisi/Tolak..." class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition resize-none"></textarea>
                             </div>
 
                             <div class="grid grid-cols-3 gap-2 pt-1">
-                                <button type="submit" name="status" value="TERIMA" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition text-center flex items-center justify-center gap-1 shadow-sm">
+                                <button type="button"
+                                    onclick="askConfirm(this.closest('form'), 'TERIMA', 'MENYETUJUI dokumen ini')"
+                                    class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition text-center flex items-center justify-center gap-1 shadow-sm">
                                     <i class="fa-solid fa-check"></i> Setujui
                                 </button>
-                                <button type="submit" name="status" value="PENDING" class="px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg transition text-center flex items-center justify-center gap-1 shadow-sm">
+                                <button type="button"
+                                    onclick="askConfirm(this.closest('form'), 'PENDING', 'meminta REVISI untuk dokumen ini')"
+                                    class="px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg transition text-center flex items-center justify-center gap-1 shadow-sm">
                                     <i class="fa-solid fa-clock-rotate-left"></i> Revisi
                                 </button>
-                                <button type="submit" name="status" value="TOLAK" class="px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg transition text-center flex items-center justify-center gap-1 shadow-sm">
+                                <button type="button"
+                                    onclick="askConfirm(this.closest('form'), 'TOLAK', 'MENOLAK dokumen ini')"
+                                    class="px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg transition text-center flex items-center justify-center gap-1 shadow-sm">
                                     <i class="fa-solid fa-xmark"></i> Tolak
                                 </button>
                             </div>
@@ -208,6 +226,62 @@
                 card.classList.toggle('ring-indigo-500', active);
                 card.classList.toggle('border-slate-800', !active);
             });
+        }
+    </script>
+    <!-- Modal Konfirmasi Tindakan Review -->
+    <div id="confirmModal" class="hidden fixed inset-0 bg-slate-900/70 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
+            <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-3">
+                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+            </div>
+            <h3 class="font-bold text-slate-900 mb-1">Konfirmasi Tindakan</h3>
+            <p id="confirmText" class="text-sm text-slate-500 mb-5"></p>
+            <div class="flex gap-2">
+                <button onclick="closeConfirm()" class="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg transition">
+                    Batal
+                </button>
+                <button onclick="confirmYes()" class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition">
+                    Ya, Lanjutkan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let pendingForm = null;
+        let pendingStatus = null;
+
+        function askConfirm(form, statusValue, actionLabel) {
+            pendingForm = form;
+            pendingStatus = statusValue;
+
+            let text = 'Yakin mau ' + actionLabel + '?';
+            if (statusValue === 'TOLAK') {
+                text += ' Setelah ditolak, proses review untuk petinggi lain juga akan berhenti.';
+            }
+            document.getElementById('confirmText').textContent = text;
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function closeConfirm() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            pendingForm = null;
+            pendingStatus = null;
+        }
+
+        function confirmYes() {
+            if (!pendingForm || !pendingStatus) return;
+
+            let hidden = pendingForm.querySelector('input[name="status"]');
+            if (!hidden) {
+                hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = 'status';
+                pendingForm.appendChild(hidden);
+            }
+            hidden.value = pendingStatus;
+
+            pendingForm.submit();
         }
     </script>
 

@@ -56,6 +56,8 @@ Route::get('/force-logout', function () {
 
 Route::middleware(['auth'])->group(function () {
 
+Route::post('/app/document/{id}/comment', [DocumentController::class, 'addComment'])->name('document.comment');
+
     // Route khusus Aspri
     Route::middleware(['role:aspri'])->group(function () {
         Route::post('/app/aspri/revisi/{id}', [DocumentController::class, 'uploadRevision'])->name('aspri.revisi');

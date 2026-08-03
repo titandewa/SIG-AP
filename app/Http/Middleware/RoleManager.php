@@ -16,7 +16,7 @@ class RoleManager
     {
         // Cek apakah user sudah login
         if (!Auth::check()) {
-            return redirect()->route('login');
+            return redirect()->guest(route('login'));
         }
 
         $userRole = strtolower(Auth::user()->role);

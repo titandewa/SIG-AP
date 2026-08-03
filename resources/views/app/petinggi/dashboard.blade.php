@@ -12,14 +12,14 @@
     <!-- Topbar -->
     <nav class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center shadow-md">
         <div class="flex items-center gap-3">
-            <a href="{{ route('app.aspri.dashboard') }}" class="bg-slate-800 hover:bg-slate-700 p-2 rounded-lg text-xs font-semibold text-slate-300 flex items-center gap-1 transition">
-                <i class="fa-solid fa-arrow-left"></i> Kembali
-            </a>
-            <h1 class="font-bold text-lg leading-none border-l border-slate-700 pl-3">
+            <h1 class="font-bold text-lg leading-none">
                 SIGAP_V1 <span class="text-xs text-indigo-400 font-normal">/ Lembar Review SK</span>
             </h1>
         </div>
         <div class="flex items-center gap-3">
+            <a href="{{ route('petinggi.riwayat') }}" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg text-slate-300 flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-clock-rotate-left"></i> Riwayat
+            </a>
             <span class="bg-amber-500/20 text-amber-300 text-xs px-3 py-1 rounded-full border border-amber-500/30">
                 Role: {{ auth()->user()->name ?? 'Petinggi Reviewer' }}
             </span>
@@ -43,6 +43,12 @@
             </div>
         </div>
     @endif
+
+    @php
+        // Sembunyikan dokumen yang sudah di-ACC (TERIMA) oleh petinggi ini
+        // supaya tidak menutupi pengajuan baru yang masih perlu ditinjau.
+        $approvals = $approvals->where('status', '!=', 'TERIMA')->values();
+    @endphp
 
     <!-- Content Area -->
     <div class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -141,6 +141,17 @@ class DocumentController extends Controller
         return view('app.dirut.dashboard', compact('readyToSignDocuments'));
     }
 
+    public function riwayatDirut()
+    {
+        $documents = Document::where('status', 'DISETUJUI')
+            ->whereNotNull('signed_file_path')
+            ->with('user')
+            ->latest('updated_at')
+            ->get();
+
+        return view('app.dirut.riwayat', compact('documents'));
+    }
+
 
     /*
     |--------------------------------------------------------------------------

@@ -26,6 +26,9 @@
             <div class="w-8 h-8 rounded-full bg-amber-500 text-slate-900 flex items-center justify-center font-extrabold">
                 {{ strtoupper(substr(auth()->user()->name ?? 'D', 0, 1)) }}
             </div>
+            <a href="{{ route('dirut.riwayat') }}" class="bg-indigo-900 hover:bg-indigo-800 text-xs px-3 py-1.5 rounded-lg border border-indigo-700 flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-clock-rotate-left"></i> Riwayat
+            </a>
             <a href="{{ route('dirut.signature.page') }}" class="bg-indigo-900 hover:bg-indigo-800 text-xs px-3 py-1.5 rounded-lg border border-indigo-700 flex items-center gap-1.5 transition">
                 <i class="fa-solid fa-signature"></i> Atur TTD
             </a>

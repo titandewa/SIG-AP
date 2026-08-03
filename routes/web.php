@@ -82,6 +82,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/app/dirut/signature', [DocumentController::class, 'showSignaturePage'])->name('dirut.signature.page');
         Route::post('/app/dirut/signature', [DocumentController::class, 'saveSignature'])->name('dirut.signature.save');
         Route::get('/app/dirut/ttd/{id}', [DocumentController::class, 'showTtdEditor'])->name('dirut.ttd.editor');
+        Route::get('/app/dirut/riwayat', [DocumentController::class, 'riwayatDirut'])->name('dirut.riwayat');
     });
 
 });

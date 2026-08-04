@@ -36,4 +36,8 @@ class Document extends Model
     {
         return $this->hasMany(Comment::class);
     }
+
+    protected $casts = [
+        'signed_at' => 'datetime',
+    ];
 }

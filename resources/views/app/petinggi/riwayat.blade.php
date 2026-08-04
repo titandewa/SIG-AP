@@ -36,7 +36,7 @@
 
         <p class="text-xs text-slate-500 mb-4 -mt-2">
             <i class="fa-solid fa-circle-info mr-1"></i>
-            Hanya menampilkan dokumen yang memang ditugaskan untuk kamu tinjau, bukan seluruh dokumen di sistem.
+            Hanya menampilkan dokumen yang sudah selesai kamu putuskan (diterima/ditolak).
         </p>
 
         <!-- Filter -->
@@ -45,9 +45,7 @@
                 <label class="text-xs font-semibold text-slate-600">Filter Status:</label>
                 <select name="status" onchange="this.form.submit()" class="text-xs border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-indigo-500">
                     <option value="">Semua Status</option>
-                    <option value="MENUNGGU" {{ request('status') === 'MENUNGGU' ? 'selected' : '' }}>Menunggu Review</option>
                     <option value="TERIMA" {{ request('status') === 'TERIMA' ? 'selected' : '' }}>Diterima</option>
-                    <option value="PENDING" {{ request('status') === 'PENDING' ? 'selected' : '' }}>Diminta Revisi</option>
                     <option value="TOLAK" {{ request('status') === 'TOLAK' ? 'selected' : '' }}>Ditolak</option>
                 </select>
                 @if(request('status'))
@@ -63,9 +61,7 @@
                     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                         <div>
                             <span class="font-bold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider
-                                {{ $app->status === 'MENUNGGU' ? 'bg-amber-100 text-amber-800' : '' }}
                                 {{ $app->status === 'TERIMA' ? 'bg-emerald-100 text-emerald-800' : '' }}
-                                {{ $app->status === 'PENDING' ? 'bg-blue-100 text-blue-800' : '' }}
                                 {{ $app->status === 'TOLAK' ? 'bg-rose-100 text-rose-800' : '' }}">
                                 {{ $app->status }}
                             </span>
@@ -76,16 +72,9 @@
                             </p>
                         </div>
 
-                        @if($app->status === 'MENUNGGU')
-                            <div class="text-right countdown-box" data-created="{{ $app->document->created_at->toIso8601String() }}">
-                                <p class="text-[10px] text-slate-400 mb-1 countdown-label">Sisa Waktu Batas 24 Jam</p>
-                                <p class="countdown-text font-bold text-sm text-slate-700">-</p>
-                            </div>
-                        @else
-                            <p class="text-[11px] text-slate-400 shrink-0">
-                                Ditinjau: {{ $app->updated_at->translatedFormat('d F Y, H:i') }}
-                            </p>
-                        @endif
+                        <p class="text-[11px] text-slate-400 shrink-0">
+                            Ditinjau: {{ $app->updated_at->translatedFormat('d F Y, H:i') }}
+                        </p>
                     </div>
 
                     @php
@@ -117,41 +106,6 @@
             @endforelse
         </div>
     </div>
-
-    <script>
-        function updateCountdowns() {
-            document.querySelectorAll('.countdown-box').forEach(box => {
-                const created = new Date(box.dataset.created);
-                const deadline = new Date(created.getTime() + 24 * 60 * 60 * 1000);
-                const now = new Date();
-                const diff = deadline - now;
-                const textEl = box.querySelector('.countdown-text');
-                const labelEl = box.querySelector('.countdown-label');
-
-                if (diff <= 0) {
-                    const overdue = Math.abs(diff);
-                    const hours = Math.floor(overdue / (1000 * 60 * 60));
-                    const minutes = Math.floor((overdue % (1000 * 60 * 60)) / (1000 * 60));
-                    const seconds = Math.floor((overdue % (1000 * 60)) / 1000);
-                    textEl.textContent = `${hours}j ${minutes}m ${seconds}d`;
-                    textEl.className = 'countdown-text font-bold text-sm text-rose-600';
-                    if (labelEl) labelEl.textContent = 'Terlambat';
-                    if (labelEl) labelEl.className = 'text-[10px] text-rose-500 mb-1 font-semibold countdown-label';
-                } else {
-                    const hours = Math.floor(diff / (1000 * 60 * 60));
-                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-                    textEl.textContent = `${hours}j ${minutes}m ${seconds}d`;
-                    textEl.className = 'countdown-text font-bold text-sm ' + (hours < 3 ? 'text-rose-600' : 'text-slate-700');
-                    if (labelEl) labelEl.textContent = 'Sisa Waktu Batas 24 Jam';
-                    if (labelEl) labelEl.className = 'text-[10px] text-slate-400 mb-1 countdown-label';
-                }
-            });
-        }
-
-        updateCountdowns();
-        setInterval(updateCountdowns, 1000);
-    </script>
 
 </body>
 </html>

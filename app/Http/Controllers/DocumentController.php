@@ -87,13 +87,14 @@ class DocumentController extends Controller
     public function riwayatAspri(Request $request)
     {
         $query = Document::with(['latestVersion', 'approvals.user'])
-            ->where('user_id', Auth::id());
+            ->where('user_id', Auth::id())
+            ->whereIn('status', ['DISETUJUI', 'DITOLAK']);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        $documents = $query->orderBy('created_at', 'asc')->get();
+        $documents = $query->orderBy('updated_at', 'desc')->get();
 
         return view('app.aspri.riwayat', compact('documents'));
     }
@@ -103,6 +104,7 @@ class DocumentController extends Controller
     {
         $approvals = DocumentApproval::with([
                 'document.latestVersion',
+                'document.versions',
                 'document.user',
                 'document.approvals.user',
                 'document.comments.user'
@@ -122,7 +124,8 @@ class DocumentController extends Controller
         $userId = auth()->id();
 
         $query = DocumentApproval::with(['document.user', 'document.latestVersion'])
-            ->where('user_id', $userId);
+            ->where('user_id', $userId)
+            ->whereIn('status', ['TERIMA', 'TOLAK']);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -167,26 +170,19 @@ class DocumentController extends Controller
     {
         $request->validate([
             'title' => 'required|string|max:255',
+            'document_number' => 'required|string|unique:documents,document_number',
             'pdf_file' => 'required|mimes:pdf|max:10240',
             'petinggi_ids' => 'required|array',
         ]);
 
         $document = DB::transaction(function () use ($request) {
-            $documentNumber = 'SK-' . date('Ym') . '-' . str_pad(
-                Document::whereYear('created_at', date('Y'))
-                    ->whereMonth('created_at', date('m'))
-                    ->lockForUpdate()
-                    ->count() + 1,
-                4, '0', STR_PAD_LEFT
-            );
-
-            $file = request()->file('pdf_file');
+            $file = $request->file('pdf_file');
             $filePath = $file->store('documents/v1', 'public');
 
             $document = Document::create([
                 'user_id' => Auth::id() ?? 1,
                 'title' => $request->title,
-                'document_number' => $documentNumber,
+                'document_number' => $request->document_number,
                 'status' => 'DITINJAU',
             ]);
 
@@ -217,6 +213,14 @@ class DocumentController extends Controller
         return redirect()->back()->with('success', 'SK berhasil diajukan dan diteruskan ke para Petinggi!');
     }
 
+    public function versionHistory($id)
+    {
+        $document = Document::where('user_id', Auth::id())->findOrFail($id);
+        $versions = $document->versions()->orderBy('version_number', 'desc')->get();
+
+        return view('app.aspri.version-history', compact('document', 'versions'));
+    }
+
     private function sendWaPengajuanBaru($user, $document)
     {
         if (!$user || !$user->phone) {
@@ -232,6 +236,29 @@ class DocumentController extends Controller
             . "No: {$document->document_number}\n"
             . "Diajukan: {$tanggalUpload}\n\n"
             . "Silakan tinjau melalui link berikut:\n{$link}\n\nTerima kasih.";
+
+        Http::withHeaders([
+            'Authorization' => config('services.fonnte.token'),
+        ])->post('https://api.fonnte.com/send', [
+            'target' => $nomor,
+            'message' => $pesan,
+        ]);
+    }
+
+    private function sendWaNotifAspri($user, $document, $statusPesan)
+    {
+        if (!$user || !$user->phone) {
+            return;
+        }
+
+        $nomor = $this->formatNomorWA($user->phone);
+        $link = route('app.aspri.detail', $document->id);
+
+        $pesan = "Halo {$user->name},\n\nUpdate status dokumen Anda:\n\n"
+            . "Judul: {$document->title}\n"
+            . "No: {$document->document_number}\n"
+            . "Status Terbaru: *{$statusPesan}*\n\n"
+            . "Silakan cek melalui sistem SIGAP:\n{$link}\n\nTerima kasih.";
 
         Http::withHeaders([
             'Authorization' => config('services.fonnte.token'),
@@ -281,8 +308,20 @@ class DocumentController extends Controller
         
         if ($request->status === 'TOLAK') {
             $doc->update(['status' => 'DITOLAK']);
+
+            // Kirim WA ke Aspri (Dokumen Ditolak)
+            $doc->load('user');
+            if ($doc->user) {
+                $this->sendWaNotifAspri($doc->user, $doc, 'DITOLAK oleh Petinggi');
+            }
         } elseif ($request->status === 'PENDING') {
             $doc->update(['status' => 'PENDING']);
+
+            // Kirim WA ke Aspri (Dokumen Perlu Revisi / Pending)
+            $doc->load('user');
+            if ($doc->user) {
+                $this->sendWaNotifAspri($doc->user, $doc, 'PENDING / PERLU REVISI');
+            }
         } else {
             // Cek apakah SEMUA petinggi sudah setuju (TERIMA)
             $totalApprovals = $doc->approvals->count();
@@ -290,10 +329,38 @@ class DocumentController extends Controller
 
             if ($totalApprovals === $acceptedApprovals) {
                 $doc->update(['status' => 'SIAP_TTD']);
+
+                // Kirim WA ke Dirut bahwa dokumen siap ditandatangani
+                $dirut = User::where('role', 'dirut')->first(); // Ambil user yang rolenya dirut
+                if ($dirut) {
+                    $this->sendWaNotifDirut($dirut, $doc);
+                }
             }
         }
 
         return redirect()->back()->with('success', 'Keputusan Anda berhasil disimpan!');
+    }
+
+    private function sendWaNotifDirut($dirut, $document)
+    {
+        if (!$dirut || !$dirut->phone) {
+            return;
+        }
+
+        $nomor = $this->formatNomorWA($dirut->phone);
+        $link = route('app.dirut.dashboard'); // Sesuaikan route dashboard dirut kamu
+
+        $pesan = "Halo {$dirut->name},\n\nSemua Petinggi telah menyetujui pengajuan dokumen:\n\n"
+            . "Judul: {$document->title}\n"
+            . "No: {$document->document_number}\n\n"
+            . "Dokumen kini *SIAP DITANDATANGANI*. Silakan akses sistem SIGAP:\n{$link}\n\nTerima kasih.";
+
+        Http::withHeaders([
+            'Authorization' => config('services.fonnte.token'),
+        ])->post('https://api.fonnte.com/send', [
+            'target' => $nomor,
+            'message' => $pesan,
+        ]);
     }
 
 
@@ -423,6 +490,12 @@ class DocumentController extends Controller
             'file_hash' => $fileHash,
         ]);
 
+        // Kirim WA ke Aspri bahwa dokumen sudah selesai ditandatangani sepenuhnya
+        $doc->load('user');
+        if ($doc->user) {
+            $this->sendWaNotifAspri($doc->user, $doc, 'SELESAI & TELAH DITANDATANGANI (Sah)');
+        }
+
         return redirect()->route('app.dirut.dashboard')->with('success', 'Dokumen SK berhasil ditandatangani dan disahkan!');
     }
 
@@ -437,7 +510,12 @@ class DocumentController extends Controller
             'signature_image' => 'required|string',
         ]);
 
-        // Data base64 dari canvas: "data:image/png;base64,iVBORw0KG..."
+        $user = Auth::user();
+
+        if ($user->signature_path && Storage::disk('public')->exists($user->signature_path)) {
+            Storage::disk('public')->delete($user->signature_path);
+        }
+
         $imageData = $request->signature_image;
         $imageData = str_replace('data:image/png;base64,', '', $imageData);
         $imageData = str_replace(' ', '+', $imageData);
@@ -446,7 +524,6 @@ class DocumentController extends Controller
         $fileName = 'signatures/dirut_' . Auth::id() . '_' . time() . '.png';
         Storage::disk('public')->put($fileName, $imageBytes);
 
-        $user = Auth::user();
         $user->update(['signature_path' => $fileName]);
 
         return redirect()->back()->with('success', 'Tanda tangan berhasil disimpan!');

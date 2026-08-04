@@ -10,13 +10,13 @@
 <body class="bg-slate-100 font-sans text-slate-800">
 
     <!-- Topbar -->
-    <nav class="bg-indigo-900 text-white px-6 py-4 flex justify-between items-center shadow-md">
+    <nav class="bg-indigo-900 text-white px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-y-2 shadow-md">
         <div class="flex items-center gap-3">
             <a href="{{ route('app.aspri.dashboard') }}" class="bg-indigo-800 hover:bg-indigo-700 p-2 rounded-lg text-xs font-semibold text-indigo-200 flex items-center gap-1 transition">
-                <i class="fa-solid fa-arrow-left"></i> Kembali
+                <i class="fa-solid fa-arrow-left"></i> <span class="hidden sm:inline">Kembali</span>
             </a>
-            <h1 class="font-bold text-lg leading-none border-l border-indigo-800 pl-3">
-                SIGAP_V1 <span class="text-xs text-indigo-300 font-normal">/ Detail Dokumen</span>
+            <h1 class="font-bold text-base sm:text-lg leading-none border-l border-indigo-800 pl-3">
+                SIGAP_V1 <span class="text-xs text-indigo-300 font-normal hidden sm:inline">/ Detail Dokumen</span>
             </h1>
         </div>
         <div class="flex items-center gap-3">
@@ -24,7 +24,7 @@
         </div>
     </nav>
 
-    <div class="max-w-3xl mx-auto p-6">
+    <div class="max-w-3xl mx-auto p-4 sm:p-6">
 
         @if(session('success'))
             <div class="bg-emerald-50 border border-emerald-300 text-emerald-800 text-sm px-4 py-3 rounded-lg mb-4">
@@ -32,9 +32,15 @@
             </div>
         @endif
 
+        @if(session('error'))
+            <div class="bg-rose-50 border border-rose-300 text-rose-800 text-sm px-4 py-3 rounded-lg mb-4">
+                <i class="fa-solid fa-triangle-exclamation mr-1"></i> {{ session('error') }}
+            </div>
+        @endif
+
         <!-- Info Dokumen -->
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-4">
-            <div class="flex justify-between items-start">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                 <div>
                     <span class="font-bold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider
                         {{ $document->status === 'DITINJAU' ? 'bg-amber-100 text-amber-800' : '' }}
@@ -68,6 +74,57 @@
                         class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition">
                         <i class="fa-solid fa-download"></i> Download Sertifikat Pengesahan
                     </a>
+                </div>
+            @endif
+
+            <!-- Baris Tombol Aksi -->
+            <div class="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                @if(in_array($document->status, ['DITINJAU', 'PENDING']))
+                    <form action="{{ route('aspri.reminder', $document->id) }}" method="POST">
+                        @csrf
+                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition shadow-sm flex items-center gap-1.5">
+                            <i class="fa-brands fa-whatsapp text-sm"></i> Send Auto-WA Reminder
+                        </button>
+                    </form>
+                @endif
+
+                <a href="{{ route('aspri.version-history', $document->id) }}"
+                    class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-4 py-2.5 rounded-lg transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Versi
+                </a>
+            </div>
+
+            <!-- Form Upload Revisi & Ganti Judul: hanya muncul kalau status PENDING (diminta revisi) -->
+            @if($document->status === 'PENDING')
+                <div class="mt-4 pt-4 border-t border-amber-200 bg-amber-50/50 -mx-5 px-5 pb-3 rounded-b-2xl">
+                    <p class="text-xs text-amber-700 font-semibold mb-3 flex items-center gap-1.5">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Petinggi meminta revisi. Perbarui judul dan berkas terbaru:
+                    </p>
+                    <form action="{{ route('aspri.revisi', $document->id) }}" method="POST" enctype="multipart/form-data" class="space-y-3">
+                        @csrf
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Judul / Perihal SK Baru</label>
+                            <input type="text" name="title" value="{{ old('title', $document->title) }}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-500 outline-none" required>
+                            @error('title')
+                                <p class="text-[10px] text-rose-600 mt-0.5">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Upload Berkas PDF Baru (.pdf)</label>
+                            <input type="file" name="pdf_file" accept=".pdf" required
+                                class="text-xs w-full bg-white border border-slate-300 rounded-lg file:mr-2 file:py-2 file:px-3 file:border-0 file:text-xs file:font-semibold file:bg-amber-600 file:text-white hover:file:bg-amber-700 file:cursor-pointer">
+                            @error('pdf_file')
+                                <p class="text-[10px] text-rose-600 mt-0.5">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="pt-1">
+                            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold py-2.5 rounded-lg transition shadow-sm flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-upload"></i> Kirim Revisi & Perbarui Judul
+                            </button>
+                        </div>
+                    </form>
                 </div>
             @endif
         </div>

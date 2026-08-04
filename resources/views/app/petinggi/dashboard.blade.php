@@ -6,27 +6,33 @@
     <title>SIGAP - Review SK (Petinggi)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        html, body { height: 100%; }
+        #docListSidebar::-webkit-scrollbar, #reviewPanel::-webkit-scrollbar { width: 8px; }
+        #docListSidebar::-webkit-scrollbar-thumb, #reviewPanel::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
 </head>
-<body class="bg-slate-100 font-sans text-slate-800">
+<body class="bg-slate-100 font-sans text-slate-800 lg:h-full">
 
+<div class="flex flex-col lg:h-full">
     <!-- Topbar -->
-    <nav class="bg-slate-900 text-white px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-y-2 shadow-md">
-        <div class="flex items-center gap-3">
-            <h1 class="font-bold text-base sm:text-lg leading-none">
-                SIGAP_V1 <span class="text-xs text-indigo-400 font-normal">/ Lembar Review SK</span>
+    <nav class="bg-slate-900 text-white px-4 sm:px-6 py-3 flex justify-between items-center shadow-md shrink-0 z-20 relative sticky top-0">
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button onclick="togglePanel('list')" class="lg:hidden bg-slate-800 hover:bg-slate-700 p-2 rounded-lg text-xs text-slate-300 transition shrink-0">
+                <i class="fa-solid fa-list"></i>
+            </button>
+            <h1 class="font-bold text-sm sm:text-lg leading-none truncate">
+                SIGAP_V1 <span class="text-xs text-indigo-400 font-normal hidden sm:inline">/ Lembar Review SK</span>
             </h1>
         </div>
-        <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+        <div class="flex items-center gap-2 shrink-0">
             <a href="{{ route('petinggi.riwayat') }}" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg text-slate-300 flex items-center gap-1.5 transition">
                 <i class="fa-solid fa-clock-rotate-left"></i> <span class="hidden sm:inline">Riwayat</span>
             </a>
-            <span class="hidden md:inline-flex bg-amber-500/20 text-amber-300 text-xs px-3 py-1 rounded-full border border-amber-500/30">
-                Role: {{ auth()->user()->name ?? 'Petinggi Reviewer' }}
-            </span>
             <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold shrink-0">
                 {{ strtoupper(substr(auth()->user()->name ?? 'P', 0, 1)) }}
             </div>
-
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
                 <button type="submit" class="bg-slate-800 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
@@ -37,7 +43,7 @@
     </nav>
 
     @if(session('success'))
-        <div class="max-w-7xl mx-auto px-6 pt-4">
+        <div class="px-4 pt-3 shrink-0">
             <div class="bg-emerald-50 border border-emerald-300 text-emerald-800 text-sm px-4 py-3 rounded-lg">
                 <i class="fa-solid fa-circle-check mr-1"></i> {{ session('success') }}
             </div>
@@ -45,80 +51,100 @@
     @endif
 
     @php
-        // Sembunyikan dokumen yang sudah di-ACC (TERIMA) oleh petinggi ini
-        // supaya tidak menutupi pengajuan baru yang masih perlu ditinjau.
         $approvals = $approvals->where('status', '!=', 'TERIMA')->values();
     @endphp
 
-    <!-- Content Area -->
-    <div class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Backdrop mobile (hanya untuk drawer list dokumen) -->
+    <div id="mobileBackdrop" onclick="closeAllPanels()" class="hidden fixed inset-0 bg-slate-900/50 z-20 lg:hidden"></div>
 
-        <!-- Kolom Kiri: Document Viewer (mengikuti dokumen yang dipilih di kanan) -->
-        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col h-[60vh] lg:h-[82vh]">
-            <!-- Header Doc -->
-            <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl">
-                <div>
-                    <h2 id="previewTitle" class="font-bold text-slate-900 text-sm">
-                        {{ $approvals->first()->document->title ?? 'Belum ada dokumen' }}
-                    </h2>
-                    <p class="text-xs text-slate-500">
-                        No: <span id="previewNumber">{{ $approvals->first()->document->document_number ?? '-' }}</span> • Pengaju:
-                        <span id="previewPengaju">{{ $approvals->first()->document->user->name ?? '-' }}</span>
-                    </p>
-                </div>
-                @if($approvals->first())
-                <span id="previewVersion" class="bg-indigo-50 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded shrink-0">
-                    Versi {{ $approvals->first()->document->latestVersion->version_number ?? '1' }}
-                </span>
-                @endif
+    <div class="flex flex-col lg:flex-row flex-1 min-h-0 relative">
+
+        <!-- Sidebar Kiri: List Dokumen (tetap drawer di HP) -->
+        <aside id="docListSidebar"
+            class="hidden lg:flex lg:flex-col fixed lg:static inset-y-0 left-0 z-30 w-72 bg-slate-900 border-r border-slate-800 shrink-0 shadow-xl lg:shadow-none">
+            <div class="flex justify-between items-center p-4 border-b border-slate-800 lg:hidden">
+                <span class="text-white font-bold text-sm">Daftar Dokumen</span>
+                <button onclick="closeAllPanels()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-
-            <!-- PDF Real Viewer -->
-            <div class="flex-1 bg-slate-200 overflow-hidden flex justify-center">
-                @if($approvals->first() && $approvals->first()->document->latestVersion)
-                    <iframe
-                        id="previewFrame"
-                        src="{{ asset('storage/' . $approvals->first()->document->latestVersion->file_path) }}"
-                        class="w-full h-full border-0"
-                        title="Preview Dokumen SK">
-                    </iframe>
-                @else
-                    <div id="previewEmpty" class="flex items-center justify-center h-full text-slate-400 text-sm">
-                        <i class="fa-solid fa-file-circle-xmark text-3xl mr-2"></i> Tidak ada berkas untuk ditampilkan.
-                    </div>
-                @endif
-            </div>
-        </div>
-
-        <!-- Kolom Kanan: Panel Daftar Pengajuan & Form Review -->
-        <div class="bg-slate-900 rounded-2xl shadow-sm border border-slate-800 p-5 flex flex-col h-[70vh] lg:h-[82vh] overflow-y-auto">
-            <h3 class="font-bold text-white text-sm mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
-                <i class="fa-regular fa-folder-open text-indigo-400"></i> Daftar Persetujuan Dokumen
-            </h3>
-
-            <!-- Dynamic Approval List -->
-            <div class="space-y-4 flex-1">
+            <div class="flex-1 overflow-y-auto p-3 space-y-2">
                 @forelse($approvals as $app)
-                    <div class="doc-card p-4 bg-slate-950/60 border rounded-xl space-y-3 cursor-pointer transition {{ $loop->first ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-800' }}"
-                        data-id="{{ $app->document_id }}"
-                        onclick="selectDocument({{ $app->document_id }})">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <h4 class="font-bold text-white text-sm">{{ $app->document->title }}</h4>
-                                <p class="text-[11px] text-slate-400 mt-0.5">
-                                    No: {{ $app->document->document_number }} | Diajukan oleh: {{ $app->document->user->name ?? 'Aspri' }}
-                                </p>
-                            </div>
-                            <span class="px-2.5 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider shrink-0
-                                {{ $app->status === 'TERIMA' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : '' }}
-                                {{ $app->status === 'PENDING' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : '' }}
-                                {{ $app->status === 'TOLAK' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : '' }}
-                                {{ $app->status === 'MENUNGGU' ? 'bg-slate-800 text-slate-300 border border-slate-700' : '' }}">
+                    <button onclick="selectDocument({{ $app->document_id }})" id="listitem-{{ $app->document_id }}"
+                        class="doc-list-item w-full text-left p-3 rounded-xl border transition
+                        {{ $loop->first ? 'bg-indigo-600/20 border-indigo-500' : 'bg-slate-950/50 border-slate-800 hover:border-slate-700' }}">
+                        <div class="flex justify-between items-start gap-2">
+                            <p class="font-semibold text-white text-xs leading-snug line-clamp-2">{{ $app->document->title }}</p>
+                            <span class="shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded uppercase
+                                {{ $app->status === 'PENDING' ? 'bg-amber-500/20 text-amber-400' : '' }}
+                                {{ $app->status === 'TOLAK' ? 'bg-rose-500/20 text-rose-400' : '' }}
+                                {{ $app->status === 'MENUNGGU' ? 'bg-slate-700 text-slate-300' : '' }}">
                                 {{ $app->status }}
                             </span>
                         </div>
+                        <p class="text-[10px] text-slate-500 mt-1">No: {{ $app->document->document_number }}</p>
+                        <p class="text-[10px] text-slate-500">{{ $app->document->user->name ?? 'Aspri' }}</p>
+                    </button>
+                @empty
+                    <div class="text-center py-10">
+                        <i class="fa-solid fa-file-circle-check text-3xl text-slate-700 mb-2 block"></i>
+                        <p class="text-slate-500 text-xs">Belum ada dokumen untuk ditinjau.</p>
+                    </div>
+                @endforelse
+            </div>
+        </aside>
 
-                        <!-- Chat Diskusi per Dokumen (Transparan Antar Petinggi & Aspri) -->
+        <!-- Tengah: Preview PDF -->
+        <main class="flex flex-col min-w-0 bg-white lg:flex-1">
+            <div class="p-3 sm:p-4 border-b border-slate-200 flex justify-between items-center gap-3 shrink-0 flex-wrap">
+                <div class="min-w-0">
+                    <h2 id="previewTitle" class="font-bold text-slate-900 text-sm truncate">
+                        {{ $approvals->first()->document->title ?? 'Belum ada dokumen' }}
+                    </h2>
+                    <p class="text-xs text-slate-500 truncate">
+                        No: <span id="previewNumber">{{ $approvals->first()->document->document_number ?? '-' }}</span> •
+                        <span id="previewPengaju">{{ $approvals->first()->document->user->name ?? '-' }}</span>
+                    </p>
+                </div>
+                @if($approvals->first() && $approvals->first()->document->latestVersion)
+                    <div class="flex items-center gap-2 shrink-0 flex-wrap">
+                        <select id="versionSelect" onchange="switchVersion(this.value)"
+                            class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-500 max-w-[140px] sm:max-w-none">
+                        </select>
+                        <button id="prevPageBtn" onclick="changePreviewPage(-1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition">
+                            <i class="fa-solid fa-chevron-up"></i>
+                        </button>
+                        <span id="previewPageInfo" class="text-xs text-slate-500 min-w-[50px] text-center">- / -</span>
+                        <button id="nextPageBtn" onclick="changePreviewPage(1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition">
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                    </div>
+                @endif
+            </div>
+
+            <!-- Tinggi preview dibatasi di HP (55vh) supaya tombol & chat di bawahnya tetap kelihatan tanpa scroll jauh -->
+            <div id="previewViewport" class="h-[55vh] lg:flex-1 lg:h-auto lg:min-h-0 bg-slate-200 flex justify-center items-center p-3 sm:p-6 overflow-hidden">
+                @if($approvals->first() && $approvals->first()->document->latestVersion)
+                    <canvas id="previewCanvas" class="shadow-md bg-white"></canvas>
+                @else
+                    <div class="text-slate-400 text-sm text-center">
+                        <i class="fa-solid fa-file-circle-xmark text-3xl mb-2 block"></i> Tidak ada berkas untuk ditampilkan.
+                    </div>
+                @endif
+            </div>
+        </main>
+
+        <!-- Kanan: Review & Chat -- SELALU TAMPIL, di bawah preview pada HP, jadi sidebar di desktop -->
+        <aside id="reviewPanel"
+            class="flex flex-col bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 shrink-0 lg:w-96 lg:overflow-y-auto p-4">
+
+            @if($approvals->isEmpty())
+                <div class="text-center py-10 bg-slate-950/40 rounded-xl border border-slate-800">
+                    <i class="fa-solid fa-file-circle-check text-3xl text-slate-600 mb-2 block"></i>
+                    <p class="text-slate-400 text-xs">Belum ada dokumen yang perlu ditinjau saat ini.</p>
+                </div>
+            @else
+                @foreach($approvals as $app)
+                    <div id="panel-{{ $app->document_id }}" class="doc-panel space-y-3 {{ $loop->first ? '' : 'hidden' }}">
+
                         @if($app->document->comments->count() > 0)
                             <div class="bg-slate-800/60 rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
                                 @foreach($app->document->comments as $comment)
@@ -135,8 +161,7 @@
                             </div>
                         @endif
 
-                        <!-- Form Kirim Pesan Chat (terpisah dari form keputusan review) -->
-                        <form action="{{ route('document.comment', $app->document_id) }}" method="POST" class="flex items-center gap-2" onclick="event.stopPropagation()">
+                        <form action="{{ route('document.comment', $app->document_id) }}" method="POST" class="flex items-center gap-2">
                             @csrf
                             <input type="text" name="comment" placeholder="Tulis pesan..." required autocomplete="off"
                                 class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
@@ -145,145 +170,225 @@
                             </button>
                         </form>
 
-                        <!-- Form Aksi Review Petinggi -->
-                        <form action="{{ route('petinggi.review', $app->document_id) }}" method="POST" class="space-y-3 pt-2" onclick="event.stopPropagation()">
+                        <form action="{{ route('petinggi.review', $app->document_id) }}" method="POST" class="space-y-3 pt-2 border-t border-slate-800">
                             @csrf
-                            <div>
-                                <label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Catatan Resmi Keputusan (opsional)</label>
-                                <textarea name="comment" rows="2" placeholder="Catatan resmi bersama keputusan Terima/Revisi/Tolak..." class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition resize-none"></textarea>
-                            </div>
-
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                                <button type="button"
-                                    onclick="askConfirm(this.closest('form'), 'TERIMA', 'MENYETUJUI dokumen ini')"
-                                    class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition text-center flex items-center justify-center gap-1 shadow-sm">
-                                    <i class="fa-solid fa-check"></i> Setujui
+                            <div class="grid grid-cols-3 gap-2 pt-1">
+                                <button type="button" onclick="askConfirm(this.closest('form'), 'TERIMA', 'MENYETUJUI dokumen ini')"
+                                    class="px-2 sm:px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-check hidden sm:inline"></i> <span>Setujui</span>
                                 </button>
-                                <button type="button"
-                                    onclick="askConfirm(this.closest('form'), 'PENDING', 'meminta REVISI untuk dokumen ini')"
-                                    class="px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg transition text-center flex items-center justify-center gap-1 shadow-sm">
-                                    <i class="fa-solid fa-clock-rotate-left"></i> Revisi
+                                <button type="button" onclick="askConfirm(this.closest('form'), 'PENDING', 'meminta REVISI untuk dokumen ini')"
+                                    class="px-2 sm:px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-clock-rotate-left hidden sm:inline"></i> <span>Revisi</span>
                                 </button>
-                                <button type="button"
-                                    onclick="askConfirm(this.closest('form'), 'TOLAK', 'MENOLAK dokumen ini')"
-                                    class="px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg transition text-center flex items-center justify-center gap-1 shadow-sm">
-                                    <i class="fa-solid fa-xmark"></i> Tolak
+                                <button type="button" onclick="askConfirm(this.closest('form'), 'TOLAK', 'MENOLAK dokumen ini')"
+                                    class="px-2 sm:px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-xmark hidden sm:inline"></i> <span>Tolak</span>
                                 </button>
                             </div>
                         </form>
                     </div>
-                @empty
-                    <div class="text-center py-10 bg-slate-950/40 rounded-xl border border-slate-800">
-                        <i class="fa-solid fa-file-circle-check text-3xl text-slate-600 mb-2 block"></i>
-                        <p class="text-slate-400 text-xs">Belum ada dokumen yang perlu ditinjau saat ini.</p>
-                    </div>
-                @endforelse
-            </div>
-        </div>
-
+                @endforeach
+            @endif
+        </aside>
     </div>
+</div>
 
-    @php
-        $approvalsForJs = [];
-        foreach ($approvals as $app) {
-            $approvalsForJs[] = [
-                'id' => $app->document_id,
-                'title' => $app->document->title,
-                'document_number' => $app->document->document_number,
-                'pengaju' => $app->document->user->name ?? '-',
-                'version_number' => $app->document->latestVersion->version_number ?? '1',
-                'file_url' => $app->document->latestVersion ? asset('storage/' . $app->document->latestVersion->file_path) : null,
+@php
+    $approvalsForJs = [];
+    foreach ($approvals as $app) {
+        $versionsForJs = [];
+        foreach ($app->document->versions->sortByDesc('version_number') as $v) {
+            $versionsForJs[] = [
+                'version_number' => $v->version_number,
+                'file_url' => asset('storage/' . $v->file_path),
             ];
         }
-    @endphp
+        $approvalsForJs[] = [
+            'id' => $app->document_id,
+            'title' => $app->document->title,
+            'document_number' => $app->document->document_number,
+            'pengaju' => $app->document->user->name ?? '-',
+            'file_url' => $app->document->latestVersion ? asset('storage/' . $app->document->latestVersion->file_path) : null,
+            'versions' => $versionsForJs,
+        ];
+    }
+@endphp
 
-    <!-- Script: switch preview kiri sesuai dokumen yang diklik -->
-    <script>
-        const reviewDocuments = {!! json_encode($approvalsForJs) !!};
+<script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        function selectDocument(id) {
-            const doc = reviewDocuments.find(d => d.id === id);
-            if (!doc) return;
+    const reviewDocuments = {!! json_encode($approvalsForJs) !!};
+    let previewPdfDoc = null;
+    let previewCurrentPage = 1;
+    let previewTotalPages = 0;
 
-            const titleEl = document.getElementById('previewTitle');
-            const numberEl = document.getElementById('previewNumber');
-            const pengajuEl = document.getElementById('previewPengaju');
-            const versionEl = document.getElementById('previewVersion');
-            if (titleEl) titleEl.textContent = doc.title;
-            if (numberEl) numberEl.textContent = doc.document_number;
-            if (pengajuEl) pengajuEl.textContent = doc.pengaju;
-            if (versionEl) versionEl.textContent = 'Versi ' + doc.version_number;
-
-            const iframe = document.getElementById('previewFrame');
-            if (iframe && doc.file_url) {
-                iframe.src = doc.file_url;
-            }
-
-            document.querySelectorAll('.doc-card').forEach(card => {
-                const active = parseInt(card.dataset.id) === id;
-                card.classList.toggle('border-indigo-500', active);
-                card.classList.toggle('ring-1', active);
-                card.classList.toggle('ring-indigo-500', active);
-                card.classList.toggle('border-slate-800', !active);
-            });
+    async function loadPreviewPdf(url) {
+        if (!url) return;
+        try {
+            const response = await fetch(url);
+            const bytes = await response.arrayBuffer();
+            previewPdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
+            previewTotalPages = previewPdfDoc.numPages;
+            previewCurrentPage = 1;
+            await renderPreviewPage();
+        } catch (e) {
+            console.error('Gagal memuat PDF preview:', e);
         }
-    </script>
-    <!-- Modal Konfirmasi Tindakan Review -->
-    <div id="confirmModal" class="hidden fixed inset-0 bg-slate-900/70 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
-            <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-3">
-                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
-            </div>
-            <h3 class="font-bold text-slate-900 mb-1">Konfirmasi Tindakan</h3>
-            <p id="confirmText" class="text-sm text-slate-500 mb-5"></p>
-            <div class="flex gap-2">
-                <button onclick="closeConfirm()" class="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg transition">
-                    Batal
-                </button>
-                <button onclick="confirmYes()" class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition">
-                    Ya, Lanjutkan
-                </button>
-            </div>
+    }
+
+    async function renderPreviewPage() {
+        if (!previewPdfDoc) return;
+        const page = await previewPdfDoc.getPage(previewCurrentPage);
+        const rawViewport = page.getViewport({ scale: 1 });
+
+        const container = document.getElementById('previewViewport');
+        const availableWidth = container.clientWidth - 24;
+        const availableHeight = container.clientHeight - 24;
+        const scale = Math.max(Math.min(availableWidth / rawViewport.width, availableHeight / rawViewport.height), 0.1);
+        const viewport = page.getViewport({ scale });
+        const pixelRatio = window.devicePixelRatio || 1;
+
+        const canvas = document.getElementById('previewCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = viewport.width * pixelRatio;
+        canvas.height = viewport.height * pixelRatio;
+        canvas.style.width = viewport.width + 'px';
+        canvas.style.height = viewport.height + 'px';
+        ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+        await page.render({ canvasContext: ctx, viewport }).promise;
+
+        const pageInfo = document.getElementById('previewPageInfo');
+        if (pageInfo) pageInfo.textContent = previewCurrentPage + ' / ' + previewTotalPages;
+        const prevBtn = document.getElementById('prevPageBtn');
+        const nextBtn = document.getElementById('nextPageBtn');
+        if (prevBtn) prevBtn.disabled = previewCurrentPage <= 1;
+        if (nextBtn) nextBtn.disabled = previewCurrentPage >= previewTotalPages;
+    }
+
+    function changePreviewPage(step) {
+        const newPage = previewCurrentPage + step;
+        if (newPage < 1 || newPage > previewTotalPages) return;
+        previewCurrentPage = newPage;
+        renderPreviewPage();
+    }
+
+    window.addEventListener('resize', () => { if (previewPdfDoc) renderPreviewPage(); });
+
+    function populateVersionDropdown(doc) {
+        const select = document.getElementById('versionSelect');
+        if (!select) return;
+        select.innerHTML = doc.versions.map((v, i) =>
+            `<option value="${v.file_url}">v${v.version_number}${i === 0 ? ' (Terbaru)' : ''}</option>`
+        ).join('');
+    }
+
+    function switchVersion(url) {
+        loadPreviewPdf(url);
+    }
+
+    function selectDocument(id) {
+        const doc = reviewDocuments.find(d => d.id === id);
+        if (!doc) return;
+
+        document.getElementById('previewTitle').textContent = doc.title;
+        document.getElementById('previewNumber').textContent = doc.document_number;
+        document.getElementById('previewPengaju').textContent = doc.pengaju;
+
+        populateVersionDropdown(doc);
+        loadPreviewPdf(doc.file_url);
+
+        document.querySelectorAll('.doc-panel').forEach(panel => {
+            const panelId = parseInt(panel.id.replace('panel-', ''));
+            panel.classList.toggle('hidden', panelId !== id);
+        });
+
+        document.querySelectorAll('.doc-list-item').forEach(item => {
+            const itemId = parseInt(item.id.replace('listitem-', ''));
+            item.classList.toggle('bg-indigo-600/20', itemId === id);
+            item.classList.toggle('border-indigo-500', itemId === id);
+            item.classList.toggle('bg-slate-950/50', itemId !== id);
+            item.classList.toggle('border-slate-800', itemId !== id);
+        });
+
+        closeAllPanels();
+    }
+
+    // Drawer cuma dipakai untuk list dokumen sekarang
+    function togglePanel(which) {
+        const list = document.getElementById('docListSidebar');
+        const backdrop = document.getElementById('mobileBackdrop');
+        const isOpen = !list.classList.contains('hidden');
+
+        list.classList.add('hidden');
+        backdrop.classList.add('hidden');
+
+        if (!isOpen) {
+            list.classList.remove('hidden');
+            backdrop.classList.remove('hidden');
+        }
+    }
+
+    function closeAllPanels() {
+        document.getElementById('docListSidebar').classList.add('hidden');
+        document.getElementById('mobileBackdrop').classList.add('hidden');
+    }
+
+    if (reviewDocuments.length > 0) {
+        populateVersionDropdown(reviewDocuments[0]);
+        loadPreviewPdf(reviewDocuments[0].file_url);
+    }
+</script>
+
+<!-- Modal Konfirmasi Tindakan Review -->
+<div id="confirmModal" class="hidden fixed inset-0 bg-slate-900/70 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
+        <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-3">
+            <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+        </div>
+        <h3 class="font-bold text-slate-900 mb-1">Konfirmasi Tindakan</h3>
+        <p id="confirmText" class="text-sm text-slate-500 mb-5"></p>
+        <div class="flex gap-2">
+            <button onclick="closeConfirm()" class="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg transition">Batal</button>
+            <button onclick="confirmYes()" class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition">Ya, Lanjutkan</button>
         </div>
     </div>
+</div>
 
-    <script>
-        let pendingForm = null;
-        let pendingStatus = null;
+<script>
+    let pendingForm = null;
+    let pendingStatus = null;
 
-        function askConfirm(form, statusValue, actionLabel) {
-            pendingForm = form;
-            pendingStatus = statusValue;
+    function askConfirm(form, statusValue, actionLabel) {
+        pendingForm = form;
+        pendingStatus = statusValue;
+        let text = 'Yakin mau ' + actionLabel + '?';
+        if (statusValue === 'TOLAK') text += ' Setelah ditolak, proses review untuk petinggi lain juga akan berhenti.';
+        document.getElementById('confirmText').textContent = text;
+        document.getElementById('confirmModal').classList.remove('hidden');
+    }
 
-            let text = 'Yakin mau ' + actionLabel + '?';
-            if (statusValue === 'TOLAK') {
-                text += ' Setelah ditolak, proses review untuk petinggi lain juga akan berhenti.';
-            }
-            document.getElementById('confirmText').textContent = text;
-            document.getElementById('confirmModal').classList.remove('hidden');
+    function closeConfirm() {
+        document.getElementById('confirmModal').classList.add('hidden');
+        pendingForm = null;
+        pendingStatus = null;
+    }
+
+    function confirmYes() {
+        if (!pendingForm || !pendingStatus) return;
+        let hidden = pendingForm.querySelector('input[name="status"]');
+        if (!hidden) {
+            hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'status';
+            pendingForm.appendChild(hidden);
         }
-
-        function closeConfirm() {
-            document.getElementById('confirmModal').classList.add('hidden');
-            pendingForm = null;
-            pendingStatus = null;
-        }
-
-        function confirmYes() {
-            if (!pendingForm || !pendingStatus) return;
-
-            let hidden = pendingForm.querySelector('input[name="status"]');
-            if (!hidden) {
-                hidden = document.createElement('input');
-                hidden.type = 'hidden';
-                hidden.name = 'status';
-                pendingForm.appendChild(hidden);
-            }
-            hidden.value = pendingStatus;
-
-            pendingForm.submit();
-        }
-    </script>
+        hidden.value = pendingStatus;
+        pendingForm.submit();
+    }
+</script>
 
 </body>
 </html>

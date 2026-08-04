@@ -38,9 +38,6 @@
                 <label class="text-xs font-semibold text-slate-600">Filter Status:</label>
                 <select name="status" onchange="this.form.submit()" class="text-xs border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-indigo-500">
                     <option value="">Semua Status</option>
-                    <option value="DITINJAU" {{ request('status') === 'DITINJAU' ? 'selected' : '' }}>Ditinjau</option>
-                    <option value="PENDING" {{ request('status') === 'PENDING' ? 'selected' : '' }}>Pending / Revisi</option>
-                    <option value="SIAP_TTD" {{ request('status') === 'SIAP_TTD' ? 'selected' : '' }}>Siap TTD</option>
                     <option value="DISETUJUI" {{ request('status') === 'DISETUJUI' ? 'selected' : '' }}>Disetujui</option>
                     <option value="DITOLAK" {{ request('status') === 'DITOLAK' ? 'selected' : '' }}>Ditolak</option>
                 </select>
@@ -57,9 +54,6 @@
                     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                         <div>
                             <span class="font-bold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider
-                                {{ $document->status === 'DITINJAU' ? 'bg-amber-100 text-amber-800' : '' }}
-                                {{ $document->status === 'PENDING' ? 'bg-amber-100 text-amber-800' : '' }}
-                                {{ $document->status === 'SIAP_TTD' ? 'bg-blue-100 text-blue-800' : '' }}
                                 {{ $document->status === 'DISETUJUI' ? 'bg-emerald-100 text-emerald-800' : '' }}
                                 {{ $document->status === 'DITOLAK' ? 'bg-rose-100 text-rose-800' : '' }}">
                                 {{ $document->status }}
@@ -68,21 +62,17 @@
                             <p class="text-xs text-slate-500">
                                 No: {{ $document->document_number }} • Diajukan: {{ $document->created_at->translatedFormat('d F Y, H:i') }}
                             </p>
+                            <p class="text-xs text-slate-400">
+                                {{ $document->status === 'DISETUJUI' ? 'Disahkan' : 'Ditolak' }}: {{ $document->updated_at->translatedFormat('d F Y, H:i') }}
+                            </p>
                         </div>
-
-                        @if(in_array($document->status, ['DITINJAU', 'PENDING']))
-                            <div class="text-left sm:text-right countdown-box" data-created="{{ $document->created_at->toIso8601String() }}">
-                                <p class="text-[10px] text-slate-400 mb-1 countdown-label">Sisa Waktu Batas 24 Jam</p>
-                                <p class="countdown-text font-bold text-sm text-slate-700">-</p>
-                            </div>
-                        @endif
                     </div>
 
                     @if($document->status === 'DISETUJUI' && $document->signed_file_path)
                         <div class="mt-3 pt-3 border-t border-slate-100">
                             <a href="{{ asset('storage/' . $document->signed_file_path) }}" target="_blank"
                                 class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition">
-                                <i class="fa-solid fa-download"></i> Download Sertifikat Pengesahan
+                                <i class="fa-solid fa-download"></i> Download Dokumen Bertandatangan
                             </a>
                         </div>
                     @endif
@@ -90,46 +80,11 @@
             @empty
                 <div class="text-center py-16 bg-white rounded-2xl border border-slate-200">
                     <i class="fa-solid fa-folder-open text-3xl text-slate-300 mb-2 block"></i>
-                    <p class="text-slate-400 text-sm">Tidak ada dokumen untuk filter ini.</p>
+                    <p class="text-slate-400 text-sm">Belum ada dokumen yang selesai diproses.</p>
                 </div>
             @endforelse
         </div>
     </div>
-
-    <script>
-        function updateCountdowns() {
-            document.querySelectorAll('.countdown-box').forEach(box => {
-                const created = new Date(box.dataset.created);
-                const deadline = new Date(created.getTime() + 24 * 60 * 60 * 1000);
-                const now = new Date();
-                const diff = deadline - now;
-                const textEl = box.querySelector('.countdown-text');
-                const labelEl = box.querySelector('.countdown-label');
-
-                if (diff <= 0) {
-                    const overdue = Math.abs(diff);
-                    const hours = Math.floor(overdue / (1000 * 60 * 60));
-                    const minutes = Math.floor((overdue % (1000 * 60 * 60)) / (1000 * 60));
-                    const seconds = Math.floor((overdue % (1000 * 60)) / 1000);
-                    textEl.textContent = `${hours}j ${minutes}m ${seconds}d`;
-                    textEl.className = 'countdown-text font-bold text-sm text-rose-600';
-                    if (labelEl) labelEl.textContent = 'Terlambat';
-                    if (labelEl) labelEl.className = 'text-[10px] text-rose-500 mb-1 font-semibold';
-                } else {
-                    const hours = Math.floor(diff / (1000 * 60 * 60));
-                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-                    textEl.textContent = `${hours}j ${minutes}m ${seconds}d`;
-                    textEl.className = 'countdown-text font-bold text-sm ' + (hours < 3 ? 'text-rose-600' : 'text-slate-700');
-                    if (labelEl) labelEl.textContent = 'Sisa Waktu Batas 24 Jam';
-                    if (labelEl) labelEl.className = 'text-[10px] text-slate-400 mb-1';
-                }
-            });
-        }
-
-        updateCountdowns();
-        setInterval(updateCountdowns, 1000);
-    </script>
 
 </body>
 </html>

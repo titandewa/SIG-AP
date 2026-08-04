@@ -228,11 +228,15 @@
             const rawViewport = page.getViewport({ scale: 1 });
             const scale = targetWidth / rawViewport.width;
             const viewport = page.getViewport({ scale });
+            const pixelRatio = window.devicePixelRatio || 1;
 
             const canvas = document.createElement('canvas');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
+            canvas.width = viewport.width * pixelRatio;
+            canvas.height = viewport.height * pixelRatio;
+            canvas.style.width = viewport.width + 'px';
+            canvas.style.height = viewport.height + 'px';
             const ctx = canvas.getContext('2d');
+            ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
             await page.render({ canvasContext: ctx, viewport }).promise;
 
             box.classList.remove('thumb-skeleton');
@@ -249,7 +253,7 @@
             });
         }
 
-        // ---------- MAIN VIEWER (fit lebar, full, tanpa crop) ----------
+        // ---------- MAIN VIEWER (fit lebar, full, tanpa crop, tajam di layar HiDPI) ----------
         async function renderPage(num) {
             const page = await pdfDocInstance.getPage(num);
             const rawViewport = page.getViewport({ scale: 1 });
@@ -264,11 +268,18 @@
             currentRenderScale = Math.max(Math.min(scaleByWidth, scaleByHeight), 0.1); // "contain" -> 1 halaman penuh terlihat
 
             const viewport = page.getViewport({ scale: currentRenderScale });
+            const pixelRatio = window.devicePixelRatio || 1;
 
             const canvas = document.getElementById('pdfCanvas');
             const ctx = canvas.getContext('2d');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
+
+            // Render di resolusi asli layar (HiDPI/Retina) biar tajam,
+            // tapi ukuran tampil (CSS) tetap sama seperti ukuran fit yang dihitung.
+            canvas.width = viewport.width * pixelRatio;
+            canvas.height = viewport.height * pixelRatio;
+            canvas.style.width = viewport.width + 'px';
+            canvas.style.height = viewport.height + 'px';
+            ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 
             await page.render({ canvasContext: ctx, viewport }).promise;
 
@@ -377,8 +388,8 @@
             wrapper.style.top = '0';
             wrapper.style.left = '0';
 
-            const startX = x !== null ? Math.max(x, 0) : Math.max(canvas.width - 200, 0);
-            const startY = y !== null ? Math.max(y, 0) : Math.max(canvas.height - 100 - (instanceCounter * 20), 0);
+            const startX = x !== null ? Math.max(x, 0) : Math.max(canvas.clientWidth - 200, 0);
+            const startY = y !== null ? Math.max(y, 0) : Math.max(canvas.clientHeight - 100 - (instanceCounter * 20), 0);
 
             wrapper.style.transform = `translate(${startX}px, ${startY}px)`;
             wrapper.setAttribute('data-x', startX);
@@ -506,12 +517,8 @@
                     const pageForScale = await pdfDocInstance.getPage(inst.page);
                     const rawVp = pageForScale.getViewport({ scale: 1 });
 
-                    // render scale dipakai saat instance ini dibuat = currentRenderScale pada saat itu.
-                    // Karena kita tidak menyimpan histori scale per halaman, gunakan scale render halaman ini
-                    // dengan menghitung ulang berdasarkan lebar canvas saat ini (works karena fit-width konsisten
-                    // untuk lebar viewport yang sama antara render & submit dalam satu sesi).
-                    const scaleX = rawVp.width / document.getElementById('pdfCanvas').width;
-                    const scaleY = rawVp.height / document.getElementById('pdfCanvas').height;
+                    const scaleX = rawVp.width / document.getElementById('pdfCanvas').clientWidth;
+                    const scaleY = rawVp.height / document.getElementById('pdfCanvas').clientHeight;
 
                     const visualX = parseFloat(inst.element.getAttribute('data-x')) || 0;
                     const visualY = parseFloat(inst.element.getAttribute('data-y')) || 0;
@@ -524,16 +531,13 @@
                     const pdfY = rawVp.height - (visualY * scaleY) - pdfHeight;
 
                     targetPage.drawImage(pngSignature, { x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight });
-                }
 
-                const lastPage = pages[pages.length - 1];
-                const qrSize = 50;
-                lastPage.drawImage(pngQr, {
-                    x: pdfPageWidth - qrSize - 20,
-                    y: 20,
-                    width: qrSize,
-                    height: qrSize,
-                });
+                    // QR ditempel di sebelah kanan tanda tangan, sejajar tingginya
+                    const qrSize = Math.min(pdfHeight, 40);
+                    const qrX = pdfX + pdfWidth + 8;
+                    const qrY = pdfY + (pdfHeight - qrSize) / 2;
+                    targetPage.drawImage(pngQr, { x: qrX, y: qrY, width: qrSize, height: qrSize });
+                }
 
                 const modifiedPdfBytes = await pdfDoc.save();
 

@@ -420,6 +420,7 @@ class DocumentController extends Controller
     public function uploadRevision(Request $request, $id)
     {
         $request->validate([
+            'title' => 'required|string|max:255',
             'pdf_file' => 'required|mimes:pdf|max:10240',
         ]);
 
@@ -431,7 +432,10 @@ class DocumentController extends Controller
 
         DB::transaction(function () use ($request, $document) {
             $file = $request->file('pdf_file');
-            $filePath = $file->store('documents/v1', 'public');
+
+            $safeTitle = \Illuminate\Support\Str::slug($request->title);
+            $customFileName = $safeTitle . '_' . time() . '.pdf';
+            $filePath = $file->storeAs('documents/v1', $customFileName, 'public');
 
             $nextVersion = $document->versions()->max('version_number') + 1;
 
@@ -439,13 +443,16 @@ class DocumentController extends Controller
                 'document_id' => $document->id,
                 'version_number' => $nextVersion,
                 'file_path' => $filePath,
-                'original_filename' => $file->getClientOriginalName(),
+                'original_filename' => $request->title . '.pdf',
             ]);
 
             // Reset semua approval Petinggi karena dokumen berubah
             $document->approvals()->update(['status' => 'MENUNGGU']);
 
-            $document->update(['status' => 'DITINJAU']);
+            $document->update([
+                'status' => 'DITINJAU',
+                'title' => $request->title,
+            ]);
         });
 
         // Kirim FCM ke semua Petinggi reviewer bahwa ada revisi baru untuk ditinjau ulang

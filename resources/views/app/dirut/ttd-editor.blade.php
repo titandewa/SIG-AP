@@ -504,7 +504,7 @@
                 const qrImageBytes = await fetch(qrApiUrl).then(res => res.arrayBuffer());
                 const signatureImageBytes = await fetch(signatureImageSrc).then(res => res.arrayBuffer());
 
-                const pdfDoc = await PDFLib.PDFDocument.load(originalPdfBytes);
+                const pdfDoc = await PDFLib.PDFDocument.load(originalPdfBytes, { ignoreEncryption: true });
                 const pngSignature = await pdfDoc.embedPng(signatureImageBytes);
                 const pngQr = await pdfDoc.embedPng(qrImageBytes);
                 const pages = pdfDoc.getPages();

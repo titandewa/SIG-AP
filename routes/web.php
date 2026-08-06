@@ -56,8 +56,9 @@ Route::get('/force-logout', function () {
 
 Route::middleware(['auth'])->group(function () {
 
-Route::post('/app/document/{id}/comment', [DocumentController::class, 'addComment'])->name('document.comment');
-
+    Route::post('/app/document/{id}/comment', [DocumentController::class, 'addComment'])->name('document.comment');
+    Route::post('/fcm/save-token', [App\Http\Controllers\FcmController::class, 'saveToken']);
+    
     // Route khusus Aspri
     Route::middleware(['role:aspri'])->group(function () {
         Route::post('/app/aspri/revisi/{id}', [DocumentController::class, 'uploadRevision'])->name('aspri.revisi');
@@ -88,6 +89,11 @@ Route::post('/app/document/{id}/comment', [DocumentController::class, 'addCommen
         Route::get('/app/dirut/riwayat', [DocumentController::class, 'riwayatDirut'])->name('dirut.riwayat');
     });
 
+});
+
+Route::get('/test-firebase', function () {
+    $messaging = app('firebase.messaging');
+    dd('Firebase connected!', $messaging);
 });
 
 require __DIR__.'/auth.php';

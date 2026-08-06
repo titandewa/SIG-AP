@@ -7,6 +7,7 @@ use App\Models\DocumentApproval;
 use App\Models\DocumentVersion;
 use App\Models\Comment;
 use App\Models\User;
+use App\Services\FcmService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
@@ -19,6 +20,13 @@ use Endroid\QrCode\Writer\PngWriter;
 
 class DocumentController extends Controller
 {
+    protected FcmService $fcmService;
+
+    public function __construct(FcmService $fcmService)
+    {
+        $this->fcmService = $fcmService;
+    }
+
     /*
     |--------------------------------------------------------------------------
     | 1. ROUTE / WORKSPACE DEMO (Bahan Presentasi Atasan)
@@ -204,10 +212,23 @@ class DocumentController extends Controller
             return $document;
         });
 
-        // Kirim WA notif ke semua petinggi yang jadi reviewer
+        // Kirim WA + FCM notif ke semua petinggi yang jadi reviewer
         $document->load('approvals.user');
         foreach ($document->approvals as $approval) {
             $this->sendWaPengajuanBaru($approval->user, $document);
+
+            if ($approval->user) {
+                $this->fcmService->sendToUser(
+                    $approval->user,
+                    'Pengajuan SK Baru',
+                    "Ada pengajuan SK baru dari Aspri: \"{$document->title}\" perlu Anda tinjau.",
+                    [
+                        'document_id' => (string) $document->id,
+                        'type' => 'pengajuan_baru',
+                        'url' => route('app.petinggi.dashboard'),
+                    ]
+                );
+            }
         }
 
         return redirect()->back()->with('success', 'SK berhasil diajukan dan diteruskan ke para Petinggi!');
@@ -252,7 +273,7 @@ class DocumentController extends Controller
         }
 
         $nomor = $this->formatNomorWA($user->phone);
-        $link = route('app.aspri.detail', $document->id);
+        $link = route('aspri.detail', $document->id);
 
         $pesan = "Halo {$user->name},\n\nUpdate status dokumen Anda:\n\n"
             . "Judul: {$document->title}\n"
@@ -304,23 +325,43 @@ class DocumentController extends Controller
         }
 
         // Cek status kolektif dari seluruh petinggi
-        $doc = Document::with('approvals')->findOrFail($id);
-        
+        $doc = Document::with(['approvals', 'user'])->findOrFail($id);
+
         if ($request->status === 'TOLAK') {
             $doc->update(['status' => 'DITOLAK']);
 
-            // Kirim WA ke Aspri (Dokumen Ditolak)
-            $doc->load('user');
+            // Kirim WA + FCM ke Aspri (Dokumen Ditolak) — hanya aspri pengirim
             if ($doc->user) {
                 $this->sendWaNotifAspri($doc->user, $doc, 'DITOLAK oleh Petinggi');
+
+                $this->fcmService->sendToUser(
+                    $doc->user,
+                    'Dokumen Ditolak',
+                    "Dokumen \"{$doc->title}\" ditolak oleh Petinggi.",
+                    [
+                        'document_id' => (string) $doc->id,
+                        'type' => 'ditolak',
+                        'url' => route('aspri.detail', $doc->id),
+                    ]
+                );
             }
         } elseif ($request->status === 'PENDING') {
             $doc->update(['status' => 'PENDING']);
 
-            // Kirim WA ke Aspri (Dokumen Perlu Revisi / Pending)
-            $doc->load('user');
+            // Kirim WA + FCM ke Aspri (Dokumen Perlu Revisi / Pending) — hanya aspri pengirim
             if ($doc->user) {
                 $this->sendWaNotifAspri($doc->user, $doc, 'PENDING / PERLU REVISI');
+
+                $this->fcmService->sendToUser(
+                    $doc->user,
+                    'Dokumen Perlu Revisi',
+                    "Dokumen \"{$doc->title}\" perlu direvisi sesuai catatan Petinggi.",
+                    [
+                        'document_id' => (string) $doc->id,
+                        'type' => 'revisi',
+                        'url' => route('aspri.detail', $doc->id),
+                    ]
+                );
             }
         } else {
             // Cek apakah SEMUA petinggi sudah setuju (TERIMA)
@@ -330,10 +371,21 @@ class DocumentController extends Controller
             if ($totalApprovals === $acceptedApprovals) {
                 $doc->update(['status' => 'SIAP_TTD']);
 
-                // Kirim WA ke Dirut bahwa dokumen siap ditandatangani
+                // Kirim WA + FCM ke Dirut bahwa dokumen siap ditandatangani
                 $dirut = User::where('role', 'dirut')->first(); // Ambil user yang rolenya dirut
                 if ($dirut) {
                     $this->sendWaNotifDirut($dirut, $doc);
+
+                    $this->fcmService->sendToUser(
+                        $dirut,
+                        'Dokumen Siap TTD',
+                        "Dokumen \"{$doc->title}\" telah disetujui semua Petinggi dan siap ditandatangani.",
+                        [
+                            'document_id' => (string) $doc->id,
+                            'type' => 'siap_ttd',
+                            'url' => route('dirut.ttd.editor', $doc->id),
+                        ]
+                    );
                 }
             }
         }
@@ -371,7 +423,7 @@ class DocumentController extends Controller
             'pdf_file' => 'required|mimes:pdf|max:10240',
         ]);
 
-        $document = Document::with('versions')->findOrFail($id);
+        $document = Document::with('versions', 'approvals.user')->findOrFail($id);
 
         if ($document->status !== 'PENDING') {
             return redirect()->back()->with('error', 'Dokumen ini tidak sedang dalam status revisi.');
@@ -395,6 +447,18 @@ class DocumentController extends Controller
 
             $document->update(['status' => 'DITINJAU']);
         });
+
+        // Kirim FCM ke semua Petinggi reviewer bahwa ada revisi baru untuk ditinjau ulang
+        foreach ($document->approvals as $approval) {
+            if ($approval->user) {
+                $this->fcmService->sendToUser(
+                    $approval->user,
+                    'Revisi SK Diunggah',
+                    "Aspri telah mengunggah revisi dokumen \"{$document->title}\", perlu ditinjau ulang.",
+                    ['document_id' => (string) $document->id, 'type' => 'revisi_diunggah']
+                );
+            }
+        }
 
         return redirect()->back()->with('success', 'Revisi berhasil diunggah, menunggu peninjauan ulang dari Petinggi.');
     }
@@ -490,10 +554,21 @@ class DocumentController extends Controller
             'file_hash' => $fileHash,
         ]);
 
-        // Kirim WA ke Aspri bahwa dokumen sudah selesai ditandatangani sepenuhnya
+        // Kirim WA + FCM ke Aspri bahwa dokumen sudah selesai ditandatangani sepenuhnya
         $doc->load('user');
         if ($doc->user) {
             $this->sendWaNotifAspri($doc->user, $doc, 'SELESAI & TELAH DITANDATANGANI (Sah)');
+
+            $this->fcmService->sendToUser(
+                $doc->user,
+                'Dokumen Selesai Ditandatangani',
+                "Dokumen \"{$doc->title}\" telah sah ditandatangani oleh Dirut.",
+                [
+                    'document_id' => (string) $doc->id,
+                    'type' => 'selesai_ttd',
+                    'url' => route('aspri.detail', $doc->id),
+                ]
+            );
         }
 
         return redirect()->route('app.dirut.dashboard')->with('success', 'Dokumen SK berhasil ditandatangani dan disahkan!');

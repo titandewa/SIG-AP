@@ -12,6 +12,7 @@
         #docListSidebar::-webkit-scrollbar, #reviewPanel::-webkit-scrollbar { width: 8px; }
         #docListSidebar::-webkit-scrollbar-thumb, #reviewPanel::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     </style>
+    @include('partials.fcm-notif')
 </head>
 <body class="bg-slate-100 font-sans text-slate-800 lg:h-full">
 

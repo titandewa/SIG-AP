@@ -27,7 +27,7 @@ messaging.onBackgroundMessage((payload) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
-  const url = (event.notification.data && event.notification.data.url) || "/";
+  const url = (event.notification.data && event.notification.data.url) || "/app/aspri/dashboard";
 
   event.waitUntil(clients.openWindow(url));
 });

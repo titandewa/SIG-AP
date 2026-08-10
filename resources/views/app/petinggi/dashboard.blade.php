@@ -126,6 +126,12 @@
                 </div>
             @else
                 @foreach($approvals as $app)
+                    @php
+                        // Dicek per dokumen: apakah petinggi ini (user login) sudah pernah
+                        // kirim komentar khusus untuk dokumen ini. $app->document->comments
+                        // sudah otomatis ter-scope ke document_id ini saja.
+                        $hasCommented = $app->document->comments->where('user_id', auth()->id())->count() > 0;
+                    @endphp
                     <div id="panel-{{ $app->document_id }}" class="doc-panel space-y-3 {{ $loop->first ? '' : 'hidden' }}">
 
                         <!-- Status semua Validator yang ditugaskan untuk dokumen ini -->
@@ -184,15 +190,24 @@
                                         class="px-2 sm:px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
                                         <i class="fa-solid fa-check hidden sm:inline"></i> <span>Setujui</span>
                                     </button>
-                                    <button type="button" onclick="askConfirm(this.closest('form'), 'PENDING', 'meminta REVISI untuk dokumen ini')"
-                                        class="px-2 sm:px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
+                                    <button type="button" {{ !$hasCommented ? 'disabled' : '' }}
+                                        onclick="askConfirm(this.closest('form'), 'PENDING', 'meminta REVISI (Pastikan poin revisi telah dicantumkan pada kolom komentar sebelum melanjutkan)')"
+                                        class="px-2 sm:px-3 py-2 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1
+                                        {{ $hasCommented ? 'bg-amber-600 hover:bg-amber-500' : 'bg-slate-700 opacity-50 cursor-not-allowed' }}">
                                         <i class="fa-solid fa-clock-rotate-left hidden sm:inline"></i> <span>Revisi</span>
                                     </button>
-                                    <button type="button" onclick="askConfirm(this.closest('form'), 'TOLAK', 'MENOLAK dokumen ini')"
-                                        class="px-2 sm:px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
+                                    <button type="button" {{ !$hasCommented ? 'disabled' : '' }}
+                                        onclick="askConfirm(this.closest('form'), 'TOLAK', 'MENOLAK dokumen ini')"
+                                        class="px-2 sm:px-3 py-2 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1
+                                        {{ $hasCommented ? 'bg-rose-600 hover:bg-rose-500' : 'bg-slate-700 opacity-50 cursor-not-allowed' }}">
                                         <i class="fa-solid fa-xmark hidden sm:inline"></i> <span>Tolak</span>
                                     </button>
                                 </div>
+                                @if(!$hasCommented)
+                                    <p class="text-[10px] text-amber-500 text-center mt-1">
+                                        <i class="fa-solid fa-lock mr-1"></i>Kirim pesan dulu untuk membuka tombol Revisi/Tolak.
+                                    </p>
+                                @endif
                             @else
                                 <p class="text-[11px] text-slate-500 text-center py-1">
                                     <i class="fa-solid fa-circle-check mr-1"></i>

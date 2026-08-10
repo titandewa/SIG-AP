@@ -56,8 +56,31 @@ Route::get('/force-logout', function () {
 
 Route::middleware(['auth'])->group(function () {
 
+    Route::get('/dashboard', function () {
+        $user = auth()->user();
+
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
+        if ($user->role === 'aspri') {
+            return redirect()->route('app.aspri.dashboard');
+        }
+
+        if ($user->role === 'petinggi') {
+            return redirect()->route('app.petinggi.dashboard');
+        }
+
+        if ($user->role === 'dirut') {
+            return redirect()->route('app.dirut.dashboard');
+        }
+
+        return redirect()->route('login');
+    })->name('dashboard');
+
     Route::post('/app/document/{id}/comment', [DocumentController::class, 'addComment'])->name('document.comment');
     Route::post('/fcm/save-token', [App\Http\Controllers\FcmController::class, 'saveToken']);
+    Route::get('/notifications/history', [App\Http\Controllers\NotificationHistoryController::class, 'index'])->name('notifications.history');
     
     // Route khusus Aspri
     Route::middleware(['role:aspri'])->group(function () {
@@ -73,8 +96,7 @@ Route::middleware(['auth'])->group(function () {
     // Route khusus Petinggi
 
     Route::middleware(['role:petinggi'])->group(function () {
-        Route::get('/app/petinggi/dashboard', [DocumentController::class, 'indexPetinggi'])
-            ->name('app.petinggi.dashboard');
+        Route::get('/app/petinggi/dashboard', [DocumentController::class, 'indexPetinggi'])->name('app.petinggi.dashboard');
         Route::post('/app/petinggi/review/{id}', [DocumentController::class, 'reviewPetinggi'])->name('petinggi.review');
         Route::get('/app/petinggi/riwayat', [DocumentController::class, 'riwayatPetinggi'])->name('petinggi.riwayat');
     });

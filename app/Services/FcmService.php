@@ -5,6 +5,7 @@ namespace App\Services;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Contract\Messaging;
 use App\Models\User;
+use App\Models\NotificationHistory;
 
 class FcmService
 {
@@ -21,6 +22,8 @@ class FcmService
     public function sendToUser(User $user, string $title, string $body, array $data = []): void
     {
         $tokens = $user->fcmTokens()->pluck('token')->toArray();
+
+        $this->recordHistory($user, $title, $body, 'browser', 'sent', $data);
 
         if (empty($tokens)) {
             return;
@@ -60,5 +63,18 @@ class FcmService
                 \App\Models\FcmToken::where('token', $token)->delete();
             }
         }
+    }
+
+    protected function recordHistory(User $user, string $title, string $body, string $channel, string $status, array $data = []): void
+    {
+        NotificationHistory::create([
+            'user_id' => $user->id,
+            'title' => $title,
+            'body' => $body,
+            'type' => $data['type'] ?? null,
+            'channel' => $channel,
+            'status' => $status,
+            'data' => $data,
+        ]);
     }
 }

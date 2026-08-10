@@ -13,7 +13,7 @@
     <nav class="bg-indigo-950 text-white px-6 py-4 flex justify-between items-center shadow-md">
         <div class="flex items-center gap-3">
             <a href="/demo/petinggi" class="bg-indigo-900 hover:bg-indigo-800 p-2 rounded-lg text-xs font-semibold text-indigo-200 flex items-center gap-1 transition">
-                <i class="fa-solid fa-arrow-left"></i> Kembali Ke Petinggi
+                <i class="fa-solid fa-arrow-left"></i> Kembali Ke Validator
             </a>
             <h1 class="font-bold text-lg leading-none border-l border-indigo-800 pl-3">
                 SIGAP_V1 <span class="text-xs text-amber-400 font-normal">/ Executive Dashboard</span>
@@ -21,7 +21,7 @@
         </div>
         <div class="flex items-center gap-3">
             <span class="bg-amber-400/20 text-amber-300 text-xs px-3 py-1 rounded-full border border-amber-400/30 font-semibold">
-                Role: Direktur Utama (Dirut)
+                Role: Direktur Utama (Direksi)
             </span>
             <div class="w-8 h-8 rounded-full bg-amber-500 text-slate-900 flex items-center justify-center font-extrabold">D</div>
         </div>
@@ -36,7 +36,7 @@
             <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl">
                 <div>
                     <h2 class="font-bold text-slate-900 text-sm">SK Pengangkatan Tim Dev SIGAP 2026</h2>
-                    <p class="text-xs text-slate-500">Nomor: 042/SK-DIR/SIGAP/2026 • Status: <span class="text-emerald-600 font-bold">100% Disetujui Petinggi</span></p>
+                    <p class="text-xs text-slate-500">Nomor: 042/SK-DIR/SIGAP/2026 • Status: <span class="text-emerald-600 font-bold">100% Disetujui Validator</span></p>
                 </div>
                 <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
                     <i class="fa-solid fa-shield-check"></i> Siap TTD
@@ -88,7 +88,7 @@
 
                 <!-- Status Approval Petinggi -->
                 <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-2">
-                    <p class="font-bold text-slate-700">Ringkasan Persetujuan Petinggi:</p>
+                    <p class="font-bold text-slate-700">Ringkasan Persetujuan Validator:</p>
                     <div class="flex items-center justify-between text-emerald-700 font-semibold bg-white p-2 rounded border border-emerald-200">
                         <span>1. Pak Budi (Legal)</span>
                         <i class="fa-solid fa-circle-check"></i>
@@ -117,10 +117,10 @@
                 </button>
 
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="alert('Demo: Dirut meminta revisi minor sebelum TTD.')" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded-lg text-xs transition">
+                    <button onclick="alert('Demo: Direksi meminta revisi minor sebelum TTD.')" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded-lg text-xs transition">
                         PENDING / REVISI
                     </button>
-                    <button onclick="alert('Demo: Dirut menolak pengajuan SK ini.')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 rounded-lg text-xs transition">
+                    <button onclick="alert('Demo: Direksi menolak pengajuan SK ini.')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 rounded-lg text-xs transition">
                         TOLAK
                     </button>
                 </div>

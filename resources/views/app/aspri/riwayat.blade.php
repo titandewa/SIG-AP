@@ -1,36 +1,9 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIGAP - Riwayat Dokumen</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body class="bg-slate-100 font-sans text-slate-800">
+<x-app-shell title="SIGAP - Riwayat Dokumen" role="aspri" roleColor="indigo" :sidebarItems="[
+    ['label' => 'Dashboard', 'url' => route('app.aspri.dashboard'), 'icon' => 'fa-solid fa-gauge-high'],
+    ['label' => 'Riwayat', 'url' => route('aspri.riwayat'), 'icon' => 'fa-solid fa-clock-rotate-left'],
+]">
 
-    <!-- Topbar -->
-    <nav class="bg-indigo-900 text-white px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-y-2 shadow-md">
-        <div class="flex items-center gap-3">
-            <a href="{{ route('app.aspri.dashboard') }}" class="bg-indigo-800 hover:bg-indigo-700 p-2 rounded-lg text-xs font-semibold text-indigo-200 flex items-center gap-1 transition">
-                <i class="fa-solid fa-arrow-left"></i> <span class="hidden sm:inline">Kembali</span>
-            </a>
-            <h1 class="font-bold text-base sm:text-lg leading-none border-l border-indigo-800 pl-3">
-                SIGAP_V1 <span class="text-xs text-indigo-300 font-normal hidden sm:inline">/ Riwayat Dokumen</span>
-            </h1>
-        </div>
-        <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <span class="hidden md:inline-flex bg-indigo-800 text-xs px-3 py-1 rounded-full border border-indigo-700">Role: Aspri / Admin</span>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="bg-slate-800 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden sm:inline">Logout</span>
-                </button>
-            </form>
-        </div>
-    </nav>
-
-    <div class="max-w-5xl mx-auto p-4 sm:p-6">
+    <div class="max-w-5xl mx-auto">
 
         <!-- Filter -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-6">
@@ -86,5 +59,4 @@
         </div>
     </div>
 
-</body>
-</html>
+</x-app-shell>

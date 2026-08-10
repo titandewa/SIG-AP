@@ -1,51 +1,34 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIGAP - Tandatangani Dokumen</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.20/dist/interact.min.js"></script>
+<x-app-shell title="SIGAP - Tandatangani Dokumen" role="dirut" roleColor="indigo" :sidebarItems="[
+    ['label' => 'Dashboard', 'url' => route('app.dirut.dashboard'), 'icon' => 'fa-solid fa-gauge-high'],
+    ['label' => 'Riwayat', 'url' => route('dirut.riwayat'), 'icon' => 'fa-solid fa-clock-rotate-left'],
+    ['label' => 'Atur TTD', 'url' => route('dirut.signature.page'), 'icon' => 'fa-solid fa-signature'],
+]">
     <style>
-        html, body { height: 100%; }
-        .signature-instance { touch-action: none; }
-        .handle { position:absolute; width:9px; height:9px; background:#fff; border:2px solid #4f46e5; border-radius:50%; pointer-events:none; z-index:5; }
-        .handle-nw{ top:-5px; left:-5px; }
-        .handle-n { top:-5px; left:50%; margin-left:-5px; }
-        .handle-ne{ top:-5px; right:-5px; }
-        .handle-e { top:50%; right:-5px; margin-top:-5px; }
-        .handle-se{ bottom:-5px; right:-5px; }
-        .handle-s { bottom:-5px; left:50%; margin-left:-5px; }
-        .handle-sw{ bottom:-5px; left:-5px; }
-        .handle-w { top:50%; left:-5px; margin-top:-5px; }
-        .thumb-skeleton { background: repeating-linear-gradient(45deg,#f1f5f9,#f1f5f9 10px,#e2e8f0 10px,#e2e8f0 20px); }
-        #thumbSidebar::-webkit-scrollbar, #viewerScroll::-webkit-scrollbar { width:8px; }
-        #thumbSidebar::-webkit-scrollbar-thumb, #viewerScroll::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
+        @media (min-width: 1024px) {
+            html, body { height: 100%; overflow: hidden; }
+        }
+        /* Style tambahan untuk memastikan canvas tajam dan responsif di berbagai device */
+        #pdfCanvas {
+            display: block;
+            width: 100% !important;
+            height: auto !important;
+        }
+        .thumb-skeleton {
+            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
     </style>
-</head>
-<body class="bg-slate-100 font-sans text-slate-800 h-full">
 
-    <div class="flex flex-col h-full">
-        <!-- Topbar -->
-        <nav class="bg-indigo-950 text-white px-4 sm:px-6 py-3 flex justify-between items-center shadow-md shrink-0 z-20 relative">
-            <div class="flex items-center gap-2 sm:gap-3 min-w-0">
-                <button onclick="togglePanel('thumb')" class="lg:hidden bg-indigo-900 hover:bg-indigo-800 p-2 rounded-lg text-xs text-indigo-200 transition shrink-0">
-                    <i class="fa-solid fa-images"></i>
-                </button>
-                <a href="{{ route('app.dirut.dashboard') }}" class="bg-indigo-900 hover:bg-indigo-800 p-2 rounded-lg text-xs font-semibold text-indigo-200 flex items-center gap-1 transition shrink-0">
-                    <i class="fa-solid fa-arrow-left"></i> <span class="hidden sm:inline">Batal</span>
-                </a>
-                <h1 class="font-bold text-sm sm:text-lg leading-none border-l border-indigo-800 pl-3 truncate">
-                    SIGAP_V1 <span class="text-xs text-amber-400 font-normal hidden sm:inline">/ Tandatangani Dokumen</span>
-                </h1>
-            </div>
-            <button onclick="togglePanel('sign')" class="lg:hidden bg-amber-500 hover:bg-amber-600 text-slate-900 p-2 rounded-lg text-xs font-bold transition shrink-0 flex items-center gap-1.5">
-                <i class="fa-solid fa-pen-nib"></i> <span class="hidden xs:inline">TTD</span>
-            </button>
-        </nav>
+    <div class="flex flex-col lg:h-[calc(100vh-64px)] -m-3 sm:-m-5 lg:-m-8 lg:overflow-hidden">
+        <!-- Bar khusus toggle thumbnail & panel TTD (mobile only) -->
+        <div class="lg:hidden bg-indigo-950 border-b border-indigo-900 px-3 py-2 flex items-center justify-between shrink-0">
+            <span class="text-indigo-200 text-xs font-semibold truncate">{{ $document->title }}</span>
+        </div>
 
         <!-- Backdrop buat drawer mobile -->
         <div id="mobileBackdrop" onclick="closeAllPanels()" class="hidden fixed inset-0 bg-slate-900/50 z-20 lg:hidden"></div>
@@ -60,23 +43,42 @@
             <!-- Tengah: viewer -->
             <main class="flex-1 flex flex-col min-w-0">
                 <!-- Nav halaman -->
-                <div class="flex items-center justify-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 bg-white border-b border-slate-200 shrink-0">
+                <div class="flex items-center gap-1.5 px-2 sm:px-4 py-2 bg-white border-b border-slate-200 shrink-0 overflow-x-auto">
+                    <button onclick="togglePanel('thumb')" class="lg:hidden w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition shrink-0">
+                        <i class="fa-solid fa-images text-slate-600"></i>
+                    </button>
+
                     <button id="prevPageBtn" onclick="changePage(-1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition shrink-0">
                         <i class="fa-solid fa-chevron-up"></i>
                     </button>
-                    <div class="flex items-center gap-2">
-                        <input type="number" id="pageInput" value="1" min="1" class="w-14 sm:w-16 text-center border border-slate-300 rounded-lg px-2 py-1 text-sm" onchange="goToPage(this.value)">
+                    <div class="flex items-center gap-1 shrink-0">
+                        <input type="number" id="pageInput" value="1" min="1" class="w-12 sm:w-16 text-center border border-slate-300 rounded-lg px-2 py-1 text-sm" onchange="goToPage(this.value)">
                         <span class="text-sm text-slate-500">/ <span id="totalPages">-</span></span>
                     </div>
                     <button id="nextPageBtn" onclick="changePage(1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition shrink-0">
                         <i class="fa-solid fa-chevron-down"></i>
                     </button>
-                    <span class="text-xs text-slate-400 border-l border-slate-200 pl-3 ml-1 truncate max-w-[100px] sm:max-w-xs hidden sm:inline">{{ $document->title }}</span>
+
+                    <div class="flex items-center gap-1 border-l border-slate-200 pl-1.5 sm:pl-3 ml-0.5 sm:ml-1 shrink-0">
+                        <button id="zoomOutBtn" onclick="zoomOut()" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition shrink-0">
+                            <i class="fa-solid fa-magnifying-glass-minus"></i>
+                        </button>
+                        <span id="zoomLevelText" class="text-xs text-slate-500 min-w-[38px] text-center">100%</span>
+                        <button id="zoomInBtn" onclick="zoomIn()" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition shrink-0">
+                            <i class="fa-solid fa-magnifying-glass-plus"></i>
+                        </button>
+                    </div>
+
+                    <span class="text-xs text-slate-400 border-l border-slate-200 pl-3 ml-1 truncate max-w-xs hidden lg:inline">{{ $document->title }}</span>
+
+                    <button onclick="togglePanel('sign')" class="lg:hidden w-8 h-8 rounded-lg bg-indigo-50 hover:bg-indigo-100 flex items-center justify-center transition shrink-0 ml-auto">
+                        <i class="fa-solid fa-signature text-indigo-600"></i>
+                    </button>
                 </div>
 
                 <!-- Area preview full, fit lebar -->
-                <div id="viewerScroll" class="flex-1 overflow-auto bg-slate-200 p-3 sm:p-6 flex justify-center">
-                    <div id="pdfContainer" class="relative bg-white shadow-md h-fit">
+                <div id="viewerScroll" class="flex-1 overflow-auto bg-slate-100 p-4 sm:p-8 flex justify-center items-start">
+                    <div id="pdfContainer" class="relative bg-white shadow-lg rounded-md h-fit my-2">
                         <canvas id="pdfCanvas"></canvas>
                     </div>
                 </div>
@@ -107,7 +109,7 @@
                 <p class="text-xs text-slate-500 mb-4">Seret kotak di bawah ke posisi yang diinginkan pada dokumen.</p>
 
                 <p class="text-xs font-semibold text-slate-600 mb-2">Kotak isian wajib diisi</p>
-                <div id="dragSignatureSource"
+                <div id="dragSignatureSource" onclick="addSignatureAtCenter()"
                     class="flex items-center gap-2 border border-slate-200 rounded-xl p-2 cursor-grab active:cursor-grabbing hover:border-indigo-300 hover:bg-indigo-50/50 transition select-none touch-none">
                     <span class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
                         <i class="fa-solid fa-pen-nib"></i>
@@ -126,8 +128,12 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.27/dist/interact.min.js"></script>
     <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        if (window.pdfjsLib) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
 
         const pdfUrl = "{{ asset('storage/' . $document->latestVersion->file_path) }}";
         const signatureImageSrc = "{{ asset('storage/' . auth()->user()->signature_path) }}";
@@ -136,18 +142,31 @@
         let pdfDocInstance = null;
         let currentPage = 1;
         let totalPagesCount = 0;
-        let pdfPageWidth = 0;   // ukuran asli PDF (scale 1) halaman aktif
+        let pdfPageWidth = 0;   
         let pdfPageHeight = 0;
-        let currentRenderScale = 1; // scale yang dipakai saat render (fit lebar)
+        let currentRenderScale = 1; 
 
         let signatureInstances = [];
         let instanceCounter = 0;
         const thumbRenderedPages = new Set();
         let thumbObserver = null;
+        let zoomLevel = 1; 
 
         async function loadPdf() {
-            const response = await fetch(pdfUrl);
+            if (!window.pdfjsLib) {
+                document.getElementById('loadingText').innerHTML = '<i class="fa-solid fa-circle-exclamation mr-1"></i> Library PDF tidak bisa dimuat.';
+                return;
+            }
+
+            const response = await fetch(pdfUrl, { cache: 'no-store' });
+            if (!response.ok) {
+                throw new Error('Gagal mengambil file PDF');
+            }
+
             originalPdfBytes = await response.arrayBuffer();
+            if (!originalPdfBytes.byteLength) {
+                throw new Error('File PDF kosong');
+            }
 
             const loadingTask = pdfjsLib.getDocument({ data: originalPdfBytes.slice(0) });
             pdfDocInstance = await loadingTask.promise;
@@ -156,12 +175,20 @@
             document.getElementById('totalPages').textContent = totalPagesCount;
             document.getElementById('pageInput').max = totalPagesCount;
 
-            currentPage = totalPagesCount; // mulai dari halaman terakhir (biasa tempat TTD)
+            currentPage = totalPagesCount; 
             document.getElementById('pageInput').value = currentPage;
 
             await buildThumbnailList();
             await renderPage(currentPage);
             document.getElementById('loadingText').classList.add('hidden');
+
+            const viewerScroll = document.getElementById('viewerScroll');
+            let resizeDebounce;
+            const ro = new ResizeObserver(() => {
+                clearTimeout(resizeDebounce);
+                resizeDebounce = setTimeout(() => renderPage(currentPage), 150);
+            });
+            ro.observe(viewerScroll);
 
             window.addEventListener('resize', debounce(() => renderPage(currentPage), 250));
         }
@@ -171,14 +198,13 @@
             return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
         }
 
-        // ---------- THUMBNAIL (lazy load) ----------
         async function buildThumbnailList() {
             const sidebar = document.getElementById('thumbSidebar');
             sidebar.innerHTML = '';
 
             const firstPage = await pdfDocInstance.getPage(1);
             const ratio = firstPage.getViewport({ scale: 1 }).height / firstPage.getViewport({ scale: 1 }).width;
-            const thumbWidth = 128; // px, lebar sidebar dikurangi padding
+            const thumbWidth = 128; 
 
             thumbObserver = new IntersectionObserver(onThumbIntersect, {
                 root: sidebar, rootMargin: '200px 0px', threshold: 0.01
@@ -218,7 +244,7 @@
                 if (thumbRenderedPages.has(pageNum)) continue;
                 thumbRenderedPages.add(pageNum);
                 thumbObserver.unobserve(box);
-                renderThumbPage(pageNum, box); // tidak perlu await, biar paralel ringan
+                renderThumbPage(pageNum, box); 
             }
         }
 
@@ -253,7 +279,6 @@
             });
         }
 
-        // ---------- MAIN VIEWER (fit lebar, full, tanpa crop, tajam di layar HiDPI) ----------
         async function renderPage(num) {
             const page = await pdfDocInstance.getPage(num);
             const rawViewport = page.getViewport({ scale: 1 });
@@ -261,11 +286,9 @@
             pdfPageHeight = rawViewport.height;
 
             const viewerScroll = document.getElementById('viewerScroll');
-            const availableWidth = viewerScroll.clientWidth - 48;   // padding kiri+kanan
-            const availableHeight = viewerScroll.clientHeight - 48; // padding atas+bawah
+            const availableWidth = viewerScroll.clientWidth - 40;   
             const scaleByWidth = availableWidth / rawViewport.width;
-            const scaleByHeight = availableHeight / rawViewport.height;
-            currentRenderScale = Math.max(Math.min(scaleByWidth, scaleByHeight), 0.1); // "contain" -> 1 halaman penuh terlihat
+            currentRenderScale = Math.max(scaleByWidth, 0.1) * zoomLevel; 
 
             const viewport = page.getViewport({ scale: currentRenderScale });
             const pixelRatio = window.devicePixelRatio || 1;
@@ -273,8 +296,7 @@
             const canvas = document.getElementById('pdfCanvas');
             const ctx = canvas.getContext('2d');
 
-            // Render di resolusi asli layar (HiDPI/Retina) biar tajam,
-            // tapi ukuran tampil (CSS) tetap sama seperti ukuran fit yang dihitung.
+            // Mengatasi masalah blur dengan resolusi device pixel ratio
             canvas.width = viewport.width * pixelRatio;
             canvas.height = viewport.height * pixelRatio;
             canvas.style.width = viewport.width + 'px';
@@ -309,7 +331,23 @@
             await renderPage(currentPage);
         }
 
-        // ---------- TANDA TANGAN: drag dari panel & drop ke dokumen (via interact.js, jalan di mouse & sentuhan) ----------
+        function updateZoomText() {
+            const el = document.getElementById('zoomLevelText');
+            if (el) el.textContent = Math.round(zoomLevel * 100) + '%';
+        }
+
+        async function zoomIn() {
+            zoomLevel = Math.min(zoomLevel + 0.2, 3);
+            updateZoomText();
+            await renderPage(currentPage);
+        }
+
+        async function zoomOut() {
+            zoomLevel = Math.max(zoomLevel - 0.2, 0.4);
+            updateZoomText();
+            await renderPage(currentPage);
+        }
+
         function initSignatureSourceDrag() {
             const source = document.getElementById('dragSignatureSource');
 
@@ -363,7 +401,7 @@
                             const relX = dropCenterX - containerRect.left - 80;
                             const relY = dropCenterY - containerRect.top - 35;
                             addSignatureInstance(relX, relY);
-                            closeAllPanels(); // biar user langsung lihat hasilnya di HP
+                            closeAllPanels(); 
                         }
 
                         clone.remove();
@@ -383,8 +421,8 @@
             const wrapper = document.createElement('div');
             wrapper.id = id;
             wrapper.className = 'signature-instance absolute cursor-move border-2 border-dashed border-indigo-500 bg-white/40';
-            wrapper.style.width = '160px';
-            wrapper.style.height = '70px';
+            wrapper.style.width = '480px';
+            wrapper.style.height = '210px';
             wrapper.style.top = '0';
             wrapper.style.left = '0';
 
@@ -401,7 +439,6 @@
             img.draggable = false;
             wrapper.appendChild(img);
 
-            // tombol hapus (silang merah)
             const delBtn = document.createElement('button');
             delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
             delBtn.className = 'absolute -top-3 -right-3 w-6 h-6 rounded-full bg-rose-500 hover:bg-rose-600 text-white text-xs flex items-center justify-center shadow z-10';
@@ -412,7 +449,6 @@
             };
             wrapper.appendChild(delBtn);
 
-            // 8 titik grid resize (visual)
             ['nw','n','ne','e','se','s','sw','w'].forEach(dir => {
                 const dot = document.createElement('span');
                 dot.className = 'handle handle-' + dir;
@@ -432,6 +468,43 @@
             signatureInstances.forEach(inst => {
                 inst.element.style.display = (inst.page === currentPage) ? 'block' : 'none';
             });
+        }
+
+        function addSignatureAtCenter() {
+            const viewerScroll = document.getElementById('viewerScroll');
+            const canvas = document.getElementById('pdfCanvas');
+            if (!canvas || !canvas.clientWidth) return;
+
+            const boxWidth = 160;
+            const boxHeight = 70;
+
+            // Hitung posisi tengah berdasarkan area yang sedang aktif di-scroll (viewport container)
+            const currentScrollX = viewerScroll.scrollLeft;
+            const currentScrollY = viewerScroll.scrollTop;
+            const visibleWidth = viewerScroll.clientWidth;
+            const visibleHeight = viewerScroll.clientHeight;
+
+            // Tentukan titik tengah relatif terhadap container scroll
+            let centerX = currentScrollX + (visibleWidth / boxWidth) * 0 + (visibleWidth - boxWidth) / 2;
+            let centerY = currentScrollY + (visibleHeight - boxHeight) / 2;
+
+            // Pastikan posisi tidak keluar dari batas ukuran canvas PDF
+            const maxLeft = Math.max(0, canvas.clientWidth - boxWidth);
+            const maxTop = Math.max(0, canvas.clientHeight - boxHeight);
+
+            // Konversi koordinat agar pas di tengah area canvas yang tampil
+            centerX = Math.max(0, Math.min(centerX - (viewerScroll.offsetLeft || 0), maxLeft));
+            centerY = Math.max(0, Math.min(centerY - (viewerScroll.offsetTop || 0), maxTop));
+
+            // Fallback sederhana jika perhitungan container terhadap scroll pas di tengah-tengah dokumen
+            const fallbackX = (canvas.clientWidth - boxWidth) / 2;
+            const fallbackY = currentScrollY + (visibleHeight / 2) - boxHeight;
+
+            finalX = Math.max(0, Math.min(fallbackX, maxLeft));
+            finalY = Math.max(0, Math.min(fallbackY, maxTop));
+
+            addSignatureInstance(finalX, finalY);
+            closeAllPanels();
         }
 
         function initDraggable(el) {
@@ -509,9 +582,6 @@
                 const pngQr = await pdfDoc.embedPng(qrImageBytes);
                 const pages = pdfDoc.getPages();
 
-                // Catatan: setiap instance dibuat saat halaman itu aktif, sehingga skala render saat
-                // instance dibuat mungkin berbeda dari currentRenderScale sekarang bila ukuran layar berubah.
-                // Karena itu skala dihitung ulang per halaman menggunakan tinggi/lebar asli PDF halaman tsb.
                 for (const inst of signatureInstances) {
                     const targetPage = pages[inst.page - 1];
                     const pageForScale = await pdfDocInstance.getPage(inst.page);
@@ -532,7 +602,6 @@
 
                     targetPage.drawImage(pngSignature, { x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight });
 
-                    // QR ditempel di sebelah kanan tanda tangan, sejajar tingginya
                     const qrSize = Math.min(pdfHeight, 40);
                     const qrX = pdfX + pdfWidth + 8;
                     const qrY = pdfY + (pdfHeight - qrSize) / 2;
@@ -566,7 +635,6 @@
             }
         }
 
-        // ---------- Drawer Mobile (thumbnail & panel TTD) ----------
         function togglePanel(which) {
             const thumb = document.getElementById('thumbSidebar');
             const sign = document.getElementById('signPanel');
@@ -575,7 +643,6 @@
             const target = which === 'thumb' ? thumb : sign;
             const isOpen = !target.classList.contains('hidden');
 
-            // tutup dulu semua
             thumb.classList.add('hidden');
             sign.classList.add('hidden');
             backdrop.classList.add('hidden');
@@ -596,5 +663,4 @@
         initSignatureSourceDrag();
     </script>
 
-</body>
-</html>
+</x-app-shell>

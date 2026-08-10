@@ -40,7 +40,7 @@
             </div>
             <div class="pt-2 border-t border-slate-800">
                 <span class="text-slate-500 block text-[10px]">Penandatangan:</span>
-                <span class="text-amber-400 font-bold">Direktur Utama (Dirut)</span>
+                <span class="text-amber-400 font-bold">Direktur Utama (Direksi)</span>
             </div>
         </div>
 

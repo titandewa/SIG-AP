@@ -20,10 +20,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        URL::forceRootUrl(config('app.url'));
+        if ($this->app->runningInConsole()) {
+            return;
+        }
 
-        if (str_starts_with(config('app.url'), 'https://')) {
-            URL::forceScheme('https');
+        $request = $this->app['request'];
+        $rootUrl = $request->getSchemeAndHttpHost();
+
+        if (!empty($rootUrl)) {
+            config(['app.url' => $rootUrl]);
+            URL::forceRootUrl($rootUrl);
+            URL::forceScheme($request->getScheme());
         }
     }
 }

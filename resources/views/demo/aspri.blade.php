@@ -19,7 +19,7 @@
             </div>
         </div>
         <div class="flex items-center gap-3">
-            <span class="bg-indigo-800 text-xs px-3 py-1 rounded-full border border-indigo-700">Role: Aspri / Admin</span>
+            <span class="bg-indigo-800 text-xs px-3 py-1 rounded-full border border-indigo-700">Role: ADMINISTRATOR / Admin</span>
             <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center font-bold">A</div>
         </div>
     </nav>
@@ -32,7 +32,7 @@
                 <i class="fa-solid fa-file-circle-plus text-indigo-600"></i> Buat Pengajuan SK Baru
             </h2>
             
-            <form onsubmit="alert('Demo: SK Berhasil Diunggah & Notifikasi WA Terkirim ke Petinggi!'); return false;" class="space-y-4">
+            <form onsubmit="alert('Demo: SK Berhasil Diunggah & Notifikasi WA Terkirim ke Validator!'); return false;" class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 mb-1">Judul / Perihal SK</label>
                     <input type="text" value="SK Pengangkatan Tim Dev SIGAP 2026" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required>
@@ -133,7 +133,7 @@
 
                 <!-- Footer Card / Akses Petinggi Demo Navigation -->
                 <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
-                    <span class="text-slate-400 italic">*Petinggi lain dapat melihat komentar secara transparan.</span>
+                    <span class="text-slate-400 italic">*Validator lain dapat melihat komentar secara transparan.</span>
                     <a href="/demo/petinggi" class="text-indigo-600 font-bold hover:underline flex items-center gap-1">
                         Simulasi Login sebagai Petinggi <i class="fa-solid fa-arrow-right"></i>
                     </a>

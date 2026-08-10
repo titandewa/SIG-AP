@@ -1,27 +1,10 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIGAP - Atur Tanda Tangan</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body class="bg-slate-100 font-sans text-slate-800">
+<x-app-shell title="SIGAP - Atur Tanda Tangan" role="dirut" roleColor="indigo" :sidebarItems="[
+    ['label' => 'Dashboard', 'url' => route('app.dirut.dashboard'), 'icon' => 'fa-solid fa-gauge-high'],
+    ['label' => 'Riwayat', 'url' => route('dirut.riwayat'), 'icon' => 'fa-solid fa-clock-rotate-left'],
+    ['label' => 'Atur TTD', 'url' => route('dirut.signature.page'), 'icon' => 'fa-solid fa-signature'],
+]">
 
-    <!-- Topbar -->
-    <nav class="bg-indigo-950 text-white px-6 py-4 flex justify-between items-center shadow-md">
-        <div class="flex items-center gap-3">
-            <a href="{{ route('app.dirut.dashboard') }}" class="bg-indigo-900 hover:bg-indigo-800 p-2 rounded-lg text-xs font-semibold text-indigo-200 flex items-center gap-1 transition">
-                <i class="fa-solid fa-arrow-left"></i> Kembali
-            </a>
-            <h1 class="font-bold text-lg leading-none border-l border-indigo-800 pl-3">
-                SIGAP_V1 <span class="text-xs text-amber-400 font-normal">/ Atur Tanda Tangan</span>
-            </h1>
-        </div>
-    </nav>
-
-    <div class="max-w-xl mx-auto p-6">
+    <div class="max-w-xl mx-auto">
 
         @if(session('success'))
             <div class="bg-emerald-50 border border-emerald-300 text-emerald-800 text-sm px-4 py-3 rounded-lg mb-4">
@@ -131,5 +114,4 @@
         });
     </script>
 
-</body>
-</html>
+</x-app-shell>

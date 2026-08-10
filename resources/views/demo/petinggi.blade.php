@@ -18,7 +18,7 @@
             <h1 class="font-bold text-lg leading-none border-l border-slate-700 pl-3">SIGAP_V1 <span class="text-xs text-indigo-400 font-normal">/ Lembar Review SK</span></h1>
         </div>
         <div class="flex items-center gap-3">
-            <span class="bg-amber-500/20 text-amber-300 text-xs px-3 py-1 rounded-full border border-amber-500/30">Role: Pak Budi (Petinggi Legal)</span>
+            <span class="bg-amber-500/20 text-amber-300 text-xs px-3 py-1 rounded-full border border-amber-500/30">Role: Pak Budi (Validator Legal)</span>
             <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold">B</div>
         </div>
     </nav>
@@ -32,7 +32,7 @@
             <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl">
                 <div>
                     <h2 class="font-bold text-slate-900 text-sm">SK Pengangkatan Tim Dev SIGAP 2026</h2>
-                    <p class="text-xs text-slate-500">Versi: Draft_SK_v1.pdf • Pengaju: Aspri Utama</p>
+                    <p class="text-xs text-slate-500">Versi: Draft_SK_v1.pdf • ADMINISTRATOR: ADMINISTRATOR Utama</p>
                 </div>
                 <span class="bg-indigo-50 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded">Versi 1</span>
             </div>
@@ -98,7 +98,7 @@
                 </div>
                 <div class="flex gap-2">
                     <input id="commentInput" type="text" placeholder="Tulis catatan revisi/komentar..." class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500">
-                    <button onclick="alert('Komentar terposting! Seluruh petinggi & Aspri dapat melihatnya.')" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs font-semibold hover:bg-indigo-700">Kirim</button>
+                    <button onclick="alert('Komentar terposting! Seluruh validator & ADMINISTRATOR dapat melihatnya.')" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs font-semibold hover:bg-indigo-700">Kirim</button>
                 </div>
             </div>
 

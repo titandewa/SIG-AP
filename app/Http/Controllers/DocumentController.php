@@ -55,7 +55,7 @@ class DocumentController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    // Dashboard Aspri Real
+    // Dashboard Administrator Real
     public function indexAspri()
     {
         $petinggiList = User::where('role', 'petinggi')->get();
@@ -107,7 +107,7 @@ class DocumentController extends Controller
         return view('app.aspri.riwayat', compact('documents'));
     }
 
-    // Dashboard Petinggi Real
+    // Dashboard Validatro Real
     public function indexPetinggi()
     {
         $approvals = DocumentApproval::with([
@@ -144,7 +144,7 @@ class DocumentController extends Controller
         return view('app.petinggi.riwayat', compact('approvals'));
     }
 
-    // Dashboard Dirut Real
+    // Dashboard Direksi Real
     public function indexDirut()
     {
         $readyToSignDocuments = Document::with(['latestVersion', 'approvals.user'])
@@ -173,7 +173,7 @@ class DocumentController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    // Simpan Pengajuan SK Baru (Oleh Aspri)
+    // Simpan Pengajuan SK Baru (Oleh Administrator)
     public function store(Request $request)
     {
         $request->validate([
@@ -212,7 +212,7 @@ class DocumentController extends Controller
             return $document;
         });
 
-        // Kirim WA + FCM notif ke semua petinggi yang jadi reviewer
+        // Kirim WA + FCM notif ke semua Validator yang jadi reviewer
         $document->load('approvals.user');
         foreach ($document->approvals as $approval) {
             $this->sendWaPengajuanBaru($approval->user, $document);
@@ -221,7 +221,7 @@ class DocumentController extends Controller
                 $this->fcmService->sendToUser(
                     $approval->user,
                     'Pengajuan SK Baru',
-                    "Ada pengajuan SK baru dari Aspri: \"{$document->title}\" perlu Anda tinjau.",
+                    "Ada pengajuan SK baru dari Administrator: \"{$document->title}\" perlu Anda tinjau.",
                     [
                         'document_id' => (string) $document->id,
                         'type' => 'pengajuan_baru',
@@ -231,7 +231,7 @@ class DocumentController extends Controller
             }
         }
 
-        return redirect()->back()->with('success', 'SK berhasil diajukan dan diteruskan ke para Petinggi!');
+        return redirect()->back()->with('success', 'SK berhasil diajukan dan diteruskan ke para Validator!');
     }
 
     public function versionHistory($id)
@@ -240,6 +240,24 @@ class DocumentController extends Controller
         $versions = $document->versions()->orderBy('version_number', 'desc')->get();
 
         return view('app.aspri.version-history', compact('document', 'versions'));
+    }
+
+    /**
+     * Salam otomatis sesuai jam saat pesan dikirim.
+     */
+    private function salamWaktu()
+    {
+        $jam = (int) now()->format('H');
+
+        if ($jam < 11) {
+            return 'Pagi';
+        } elseif ($jam < 15) {
+            return 'Siang';
+        } elseif ($jam < 19) {
+            return 'Sore';
+        }
+
+        return 'Malam';
     }
 
     private function sendWaPengajuanBaru($user, $document)
@@ -251,12 +269,16 @@ class DocumentController extends Controller
         $nomor = $this->formatNomorWA($user->phone);
         $link = route('app.petinggi.dashboard');
         $tanggalUpload = $document->created_at->translatedFormat('d F Y, H:i');
+        $salam = $this->salamWaktu();
 
-        $pesan = "Halo {$user->name},\n\nAda pengajuan SK baru yang perlu Anda tinjau:\n\n"
-            . "Judul: {$document->title}\n"
-            . "No: {$document->document_number}\n"
-            . "Diajukan: {$tanggalUpload}\n\n"
-            . "Silakan tinjau melalui link berikut:\n{$link}\n\nTerima kasih.";
+        $pesan = "Selamat {$salam} Bapak/Ibu {$user->name}\n\n"
+            . "Untuk melengkapi administrasi, berikut saya lampirkan Surat Pengajuan yang perlu ditinjau :\n\n"
+            . "Judul Surat : {$document->title}\n"
+            . "Nomor Surat : {$document->document_number}\n"
+            . "Tgl Pengajuan : {$tanggalUpload}\n\n"
+            . "Mohon segera ditinjau melalui link berikut, dan apabila tidak setuju mohon menyertakan alasan pada kolom komentar\n"
+            . "{$link}\n\n"
+            . "Terimakasih";
 
         Http::withHeaders([
             'Authorization' => config('services.fonnte.token'),
@@ -289,7 +311,7 @@ class DocumentController extends Controller
         ]);
     }
 
-    // Review SK oleh Petinggi (Terima / Pending / Tolak)
+    // Review SK oleh Validator (Terima / Pending / Tolak)
     public function reviewPetinggi(Request $request, $id)
     {
         $request->validate([
@@ -324,20 +346,20 @@ class DocumentController extends Controller
             ]);
         }
 
-        // Cek status kolektif dari seluruh petinggi
+        // Cek status kolektif dari seluruh Validator
         $doc = Document::with(['approvals', 'user'])->findOrFail($id);
 
         if ($request->status === 'TOLAK') {
             $doc->update(['status' => 'DITOLAK']);
 
-            // Kirim WA + FCM ke Aspri (Dokumen Ditolak) — hanya aspri pengirim
+            // Kirim WA + FCM ke Administrator (Dokumen Ditolak) — hanya Administrator pengirim
             if ($doc->user) {
-                $this->sendWaNotifAspri($doc->user, $doc, 'DITOLAK oleh Petinggi');
+                $this->sendWaNotifAspri($doc->user, $doc, 'DITOLAK oleh Validator');
 
                 $this->fcmService->sendToUser(
                     $doc->user,
                     'Dokumen Ditolak',
-                    "Dokumen \"{$doc->title}\" ditolak oleh Petinggi.",
+                    "Dokumen \"{$doc->title}\" ditolak oleh Validator.",
                     [
                         'document_id' => (string) $doc->id,
                         'type' => 'ditolak',
@@ -348,14 +370,14 @@ class DocumentController extends Controller
         } elseif ($request->status === 'PENDING') {
             $doc->update(['status' => 'PENDING']);
 
-            // Kirim WA + FCM ke Aspri (Dokumen Perlu Revisi / Pending) — hanya aspri pengirim
+            // Kirim WA + FCM ke Administrator (Dokumen Perlu Revisi / Pending) — hanya Administrator pengirim
             if ($doc->user) {
                 $this->sendWaNotifAspri($doc->user, $doc, 'PENDING / PERLU REVISI');
 
                 $this->fcmService->sendToUser(
                     $doc->user,
                     'Dokumen Perlu Revisi',
-                    "Dokumen \"{$doc->title}\" perlu direvisi sesuai catatan Petinggi.",
+                    "Dokumen \"{$doc->title}\" perlu direvisi sesuai catatan Validator.",
                     [
                         'document_id' => (string) $doc->id,
                         'type' => 'revisi',
@@ -364,22 +386,22 @@ class DocumentController extends Controller
                 );
             }
         } else {
-            // Cek apakah SEMUA petinggi sudah setuju (TERIMA)
+            // Cek apakah SEMUA Validator sudah setuju (TERIMA)
             $totalApprovals = $doc->approvals->count();
             $acceptedApprovals = $doc->approvals->where('status', 'TERIMA')->count();
 
             if ($totalApprovals === $acceptedApprovals) {
                 $doc->update(['status' => 'SIAP_TTD']);
 
-                // Kirim WA + FCM ke Dirut bahwa dokumen siap ditandatangani
-                $dirut = User::where('role', 'dirut')->first(); // Ambil user yang rolenya dirut
+                // Kirim WA + FCM ke Direksi bahwa dokumen siap ditandatangani
+                $dirut = User::where('role', 'dirut')->first(); // Ambil user yang rolenya Direksi
                 if ($dirut) {
                     $this->sendWaNotifDirut($dirut, $doc);
 
                     $this->fcmService->sendToUser(
                         $dirut,
                         'Dokumen Siap TTD',
-                        "Dokumen \"{$doc->title}\" telah disetujui semua Petinggi dan siap ditandatangani.",
+                        "Dokumen \"{$doc->title}\" telah disetujui semua Validator dan siap ditandatangani.",
                         [
                             'document_id' => (string) $doc->id,
                             'type' => 'siap_ttd',
@@ -400,12 +422,18 @@ class DocumentController extends Controller
         }
 
         $nomor = $this->formatNomorWA($dirut->phone);
-        $link = route('app.dirut.dashboard'); // Sesuaikan route dashboard dirut kamu
+        $link = route('app.dirut.dashboard'); // Sesuaikan route dashboard Direksi kamu
+        $tanggalUpload = $document->created_at->translatedFormat('d F Y, H:i');
+        $salam = $this->salamWaktu();
 
-        $pesan = "Halo {$dirut->name},\n\nSemua Petinggi telah menyetujui pengajuan dokumen:\n\n"
-            . "Judul: {$document->title}\n"
-            . "No: {$document->document_number}\n\n"
-            . "Dokumen kini *SIAP DITANDATANGANI*. Silakan akses sistem SIGAP:\n{$link}\n\nTerima kasih.";
+        $pesan = "Selamat {$salam} Bapak/Ibu {$dirut->name}\n\n"
+            . "Untuk melengkapi administrasi, berikut saya lampirkan Surat Pengajuan yang perlu ditinjau :\n\n"
+            . "Judul Surat : {$document->title}\n"
+            . "Nomor Surat : {$document->document_number}\n"
+            . "Tgl Pengajuan : {$tanggalUpload}\n\n"
+            . "Mohon segera ditinjau melalui link berikut, dan apabila tidak setuju mohon menyertakan alasan pada kolom komentar\n"
+            . "{$link}\n\n"
+            . "Terimakasih";
 
         Http::withHeaders([
             'Authorization' => config('services.fonnte.token'),
@@ -446,7 +474,7 @@ class DocumentController extends Controller
                 'original_filename' => $request->title . '.pdf',
             ]);
 
-            // Reset semua approval Petinggi karena dokumen berubah
+            // Reset semua approval Validator karena dokumen berubah
             $document->approvals()->update(['status' => 'MENUNGGU']);
 
             $document->update([
@@ -455,19 +483,19 @@ class DocumentController extends Controller
             ]);
         });
 
-        // Kirim FCM ke semua Petinggi reviewer bahwa ada revisi baru untuk ditinjau ulang
+        // Kirim FCM ke semua Validator reviewer bahwa ada revisi baru untuk ditinjau ulang
         foreach ($document->approvals as $approval) {
             if ($approval->user) {
                 $this->fcmService->sendToUser(
                     $approval->user,
                     'Revisi SK Diunggah',
-                    "Aspri telah mengunggah revisi dokumen \"{$document->title}\", perlu ditinjau ulang.",
+                    "Administrator telah mengunggah revisi dokumen \"{$document->title}\", perlu ditinjau ulang.",
                     ['document_id' => (string) $document->id, 'type' => 'revisi_diunggah']
                 );
             }
         }
 
-        return redirect()->back()->with('success', 'Revisi berhasil diunggah, menunggu peninjauan ulang dari Petinggi.');
+        return redirect()->back()->with('success', 'Revisi berhasil diunggah, menunggu peninjauan ulang dari Validator.');
     }
 
     /*
@@ -483,13 +511,14 @@ class DocumentController extends Controller
         $pendingApprovals = $document->approvals->where('status', 'MENUNGGU');
 
         if ($pendingApprovals->isEmpty()) {
-            return redirect()->back()->with('error', 'Semua Petinggi sudah merespons, tidak ada yang perlu diingatkan.');
+            return redirect()->back()->with('error', 'Semua Validator sudah merespons, tidak ada yang perlu diingatkan.');
         }
 
         $terkirim = [];
         $link = route('app.petinggi.dashboard');
         $tanggalUpload = $document->created_at->translatedFormat('d F Y, H:i');
         $lamaNganggur = $document->created_at->diffForHumans(null, true); // contoh: "3 jam"
+        $salam = $this->salamWaktu();
 
         foreach ($pendingApprovals as $approval) {
             $user = $approval->user;
@@ -500,11 +529,14 @@ class DocumentController extends Controller
 
             $nomor = $this->formatNomorWA($user->phone);
 
-            $pesan = "Halo {$user->name},\n\nAnda memiliki pengajuan SK yang menunggu peninjauan:\n\n"
-                . "Judul: {$document->title}\n"
-                . "No: {$document->document_number}\n"
-                . "Diajukan: {$tanggalUpload} (sudah {$lamaNganggur})\n\n"
-                . "Mohon segera ditinjau melalui link berikut:\n{$link}\n\nTerima kasih.";
+            $pesan = "Selamat {$salam} Bapak/Ibu {$user->name}\n\n"
+                . "Untuk melengkapi administrasi, berikut saya lampirkan Surat Pengajuan yang perlu ditinjau :\n\n"
+                . "Judul Surat : {$document->title}\n"
+                . "Nomor Surat : {$document->document_number}\n"
+                . "Tgl Pengajuan : {$tanggalUpload}\n\n"
+                . "Mohon segera ditinjau melalui link berikut, dan apabila tidak setuju mohon menyertakan alasan pada kolom komentar\n"
+                . "{$link}\n\n"
+                . "Terimakasih";
 
             Http::withHeaders([
                 'Authorization' => config('services.fonnte.token'),
@@ -542,7 +574,7 @@ class DocumentController extends Controller
         $doc = Document::with('latestVersion')->findOrFail($id);
 
         if ($doc->status !== 'SIAP_TTD') {
-            return redirect()->back()->with('error', 'Dokumen belum mendapat persetujuan 100% dari Petinggi!');
+            return redirect()->back()->with('error', 'Dokumen belum mendapat persetujuan 100% dari Validator!');
         }
 
         $signedFile = $request->file('signed_pdf');
@@ -561,7 +593,7 @@ class DocumentController extends Controller
             'file_hash' => $fileHash,
         ]);
 
-        // Kirim WA + FCM ke Aspri bahwa dokumen sudah selesai ditandatangani sepenuhnya
+        // Kirim WA + FCM ke Administrator bahwa dokumen sudah selesai ditandatangani sepenuhnya
         $doc->load('user');
         if ($doc->user) {
             $this->sendWaNotifAspri($doc->user, $doc, 'SELESAI & TELAH DITANDATANGANI (Sah)');
@@ -569,7 +601,7 @@ class DocumentController extends Controller
             $this->fcmService->sendToUser(
                 $doc->user,
                 'Dokumen Selesai Ditandatangani',
-                "Dokumen \"{$doc->title}\" telah sah ditandatangani oleh Dirut.",
+                "Dokumen \"{$doc->title}\" telah sah ditandatangani oleh Direksi.",
                 [
                     'document_id' => (string) $doc->id,
                     'type' => 'selesai_ttd',

@@ -1,35 +1,7 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIGAP - Dashboard Aspri</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    @include('partials.fcm-notif')
-</head>
-<body class="bg-slate-100 font-sans text-slate-800" data-has-errors="{{ $errors->any() ? 'true' : 'false' }}">
-
-    <!-- Topbar -->
-    <nav class="bg-indigo-900 text-white px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-y-2 shadow-md">
-        <div class="flex items-center gap-3">
-            <div class="bg-indigo-600 p-2 rounded-lg font-bold text-xl">S</div>
-            <div>
-                <h1 class="font-bold text-base sm:text-lg leading-none">SIGAP_V1</h1>
-                <span class="text-xs text-indigo-200 hidden sm:inline">Sistem Pengajuan & Approval SK</span>
-            </div>
-        </div>
-        <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <span class="hidden md:inline-flex bg-indigo-800 text-xs px-3 py-1 rounded-full border border-indigo-700">Role: Aspri / Admin</span>
-            <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center font-bold shrink-0">A</div>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="bg-slate-800 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden sm:inline">Logout</span>
-                </button>
-            </form>
-        </div>
-    </nav>
+<x-app-shell title="SIGAP - Dashboard ADMINISTRATOR" role="aspri" roleColor="indigo" :sidebarItems="[
+    ['label' => 'Dashboard', 'url' => route('app.aspri.dashboard'), 'icon' => 'fa-solid fa-gauge-high'],
+    ['label' => 'Riwayat', 'url' => route('aspri.riwayat'), 'icon' => 'fa-solid fa-clock-rotate-left'],
+]">
 
     <div class="max-w-5xl mx-auto p-4 sm:p-6">
 
@@ -51,15 +23,10 @@
                 <h2 class="text-lg font-bold text-slate-900">Daftar Pengajuan SK Aktif</h2>
                 <p class="text-xs text-slate-500">Klik dokumen untuk melihat detail, status, dan diskusi.</p>
             </div>
-            <div class="flex items-center gap-2">
-                <a href="{{ route('aspri.riwayat') }}" class="text-xs font-semibold text-indigo-600 hover:underline flex items-center gap-1">
-                    <i class="fa-solid fa-clock-rotate-left"></i> Riwayat
-                </a>
-                <button onclick="document.getElementById('uploadModal').classList.remove('hidden')"
-                    class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow-sm">
-                    <i class="fa-solid fa-plus"></i> Buat Pengajuan Baru
-                </button>
-            </div>
+            <button onclick="document.getElementById('uploadModal').classList.remove('hidden')"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-plus"></i> Buat Pengajuan Baru
+            </button>
         </div>
 
         <!-- List SK Aktif (Simple Card) -->
@@ -162,10 +129,10 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-2">Pilih Petinggi Peninjau (Reviewer)</label>
+                        <label class="block text-xs font-semibold text-slate-600 mb-2">Pilih Validator</label>
 
-                        <!-- Kolom Search Petinggi -->
-                        <input type="text" id="petinggiSearch" onkeyup="filterPetinggi()" placeholder="Cari nama petinggi..."
+                        <!-- Kolom Search Validator -->
+                        <input type="text" id="petinggiSearch" onkeyup="filterPetinggi()" placeholder="Cari nama validator..."
                             class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg mb-2 focus:ring-2 focus:ring-indigo-500 outline-none">
 
                         <div id="petinggiListBox" class="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs max-h-40 overflow-y-auto">
@@ -175,7 +142,7 @@
                                     <span>{{ $petinggi->name }}</span>
                                 </label>
                             @empty
-                                <p class="text-slate-400 italic">Belum ada user dengan role petinggi.</p>
+                                <p class="text-slate-400 italic">Belum ada user dengan role Validator.</p>
                             @endforelse
                         </div>
                         <p id="petinggiNoResult" class="hidden text-[11px] text-slate-400 italic mt-1">Tidak ada nama yang cocok.</p>
@@ -282,7 +249,7 @@
             submitBtnLoading.classList.add('flex');
         });
 
-        // Fungsi Filter Petinggi secara Real-time
+        // Fungsi Filter Validator secara Real-time
         function filterPetinggi() {
             const keyword = document.getElementById('petinggiSearch').value.toLowerCase();
             const items = document.querySelectorAll('.petinggi-item');
@@ -299,5 +266,4 @@
         }
     </script>
 
-</body>
-</html>
+</x-app-shell>

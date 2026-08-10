@@ -1,53 +1,23 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIGAP - Dashboard Dirut & Approval TTD</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<x-app-shell title="SIGAP - Dashboard Direksi & Approval TTD" role="dirut" roleColor="indigo" :sidebarItems="[
+    ['label' => 'Dashboard', 'url' => route('app.dirut.dashboard'), 'icon' => 'fa-solid fa-gauge-high'],
+    ['label' => 'Riwayat', 'url' => route('dirut.riwayat'), 'icon' => 'fa-solid fa-clock-rotate-left'],
+    ['label' => 'Atur TTD', 'url' => route('dirut.signature.page'), 'icon' => 'fa-solid fa-signature'],
+]">
     <style>
-        html, body { height: 100%; }
+        html, body { height: 100%; overflow: hidden; }
         #docListSidebar::-webkit-scrollbar { width: 8px; }
         #docListSidebar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     </style>
     @include('partials.fcm-notif')
-</head>
-<body class="bg-slate-100 font-sans text-slate-800 lg:h-full">
 
-<div class="flex flex-col lg:h-full">
-    <!-- Topbar -->
-    <nav class="bg-indigo-950 text-white px-4 sm:px-6 py-3 flex justify-between items-center shadow-md shrink-0 z-20 relative sticky top-0">
-        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
-            <button onclick="togglePanel('list')" class="lg:hidden bg-indigo-900 hover:bg-indigo-800 p-2 rounded-lg text-xs text-indigo-200 transition shrink-0">
-                <i class="fa-solid fa-list"></i>
-            </button>
-            <a href="{{ route('app.petinggi.dashboard') }}" class="bg-indigo-900 hover:bg-indigo-800 p-2 rounded-lg text-xs font-semibold text-indigo-200 flex items-center gap-1 transition shrink-0">
-                <i class="fa-solid fa-arrow-left"></i> <span class="hidden sm:inline">Kembali</span>
-            </a>
-            <h1 class="font-bold text-sm sm:text-lg leading-none border-l border-indigo-800 pl-3 truncate">
-                SIGAP_V1 <span class="text-xs text-amber-400 font-normal hidden sm:inline">/ Executive Dashboard</span>
-            </h1>
-        </div>
-        <div class="flex items-center gap-2 shrink-0">
-            <div class="w-8 h-8 rounded-full bg-amber-500 text-slate-900 flex items-center justify-center font-extrabold shrink-0">
-                {{ strtoupper(substr(auth()->user()->name ?? 'D', 0, 1)) }}
-            </div>
-            <a href="{{ route('dirut.riwayat') }}" class="bg-indigo-900 hover:bg-indigo-800 text-xs px-3 py-2 rounded-lg border border-indigo-700 flex items-center gap-1.5 transition">
-                <i class="fa-solid fa-clock-rotate-left"></i> <span class="hidden sm:inline">Riwayat</span>
-            </a>
-            <a href="{{ route('dirut.signature.page') }}" class="bg-indigo-900 hover:bg-indigo-800 text-xs px-3 py-2 rounded-lg border border-indigo-700 flex items-center gap-1.5 transition">
-                <i class="fa-solid fa-signature"></i> <span class="hidden sm:inline">Atur TTD</span>
-            </a>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="bg-slate-800 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden sm:inline">Logout</span>
-                </button>
-            </form>
-        </div>
-    </nav>
+<div class="flex flex-col h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] -m-3 sm:-m-5 lg:-m-8 overflow-hidden">
+    <!-- Bar khusus toggle daftar dokumen (mobile only) -->
+    <div class="lg:hidden bg-indigo-950 border-b border-indigo-900 px-4 py-2.5 flex items-center justify-between shrink-0">
+        <span class="text-indigo-200 text-xs font-semibold">Executive Dashboard</span>
+        <button onclick="togglePanel('list')" class="bg-indigo-900 hover:bg-indigo-800 px-3 py-1.5 rounded-lg text-xs text-indigo-200 flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-list"></i> Dokumen Siap TTD
+        </button>
+    </div>
 
     @if(session('success'))
         <div class="px-4 pt-3 shrink-0">
@@ -72,7 +42,7 @@
 
         <!-- Sidebar Kiri: List Dokumen (drawer di HP) -->
         <aside id="docListSidebar"
-            class="hidden lg:flex lg:flex-col fixed lg:static inset-y-0 left-0 z-30 w-72 bg-slate-900 border-r border-slate-800 shrink-0 shadow-xl lg:shadow-none">
+            class="hidden lg:flex lg:flex-col fixed lg:static inset-y-0 left-0 z-30 w-72 bg-slate-900 border-r border-slate-800 shrink-0 shadow-xl lg:shadow-none lg:h-full lg:overflow-hidden">
             <div class="flex justify-between items-center p-4 border-b border-slate-800 lg:hidden">
                 <span class="text-white font-bold text-sm">Dokumen Siap Disahkan</span>
                 <button onclick="closeAllPanels()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
@@ -88,7 +58,7 @@
                         <p class="font-semibold text-white text-xs leading-snug line-clamp-2">{{ $doc->title }}</p>
                         <p class="text-[10px] text-slate-500 mt-1">No: {{ $doc->document_number }}</p>
                         <div class="mt-1.5 flex items-center gap-1.5 text-[10px] text-emerald-400 font-medium">
-                            <i class="fa-solid fa-circle-check"></i> 100% Disetujui Petinggi
+                            <i class="fa-solid fa-circle-check"></i> 100% Disetujui Validator
                         </div>
                     </button>
                 @empty
@@ -109,7 +79,7 @@
                     </h2>
                     <p class="text-xs text-slate-500 truncate">
                         No: <span id="previewNumber">{{ $readyToSignDocuments->first()->document_number ?? '-' }}</span> •
-                        <span class="text-emerald-600 font-semibold">100% Disetujui Petinggi</span>
+                        <span class="text-emerald-600 font-semibold">100% Disetujui Validator</span>
                     </p>
                 </div>
                 @if($readyToSignDocuments->first() && $readyToSignDocuments->first()->latestVersion)
@@ -151,7 +121,7 @@
                                 <p class="text-[11px] text-slate-400">No: {{ $doc->document_number }}</p>
                                 <div class="mt-2 flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
                                     <i class="fa-solid fa-circle-check"></i>
-                                    <span>Persetujuan Petinggi Lengkap (100%)</span>
+                                    <span>Persetujuan Validator Lengkap (100%)</span>
                                 </div>
                             </div>
 
@@ -179,8 +149,11 @@
     }
 @endphp
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    if (window.pdfjsLib) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
 
     const readyDocuments = {!! json_encode($readyDocumentsForJs) !!};
     let previewPdfDoc = null;
@@ -189,15 +162,42 @@
 
     async function loadPreviewPdf(url) {
         if (!url) return;
+        if (!window.pdfjsLib) {
+            const viewport = document.getElementById('previewViewport');
+            if (viewport) {
+                viewport.innerHTML = '<div class="text-center text-sm text-rose-600"><i class="fa-solid fa-file-circle-xmark text-3xl mb-2 block"></i><p>Library PDF tidak bisa dimuat.</p></div>';
+            }
+            return;
+        }
+        const viewport = document.getElementById('previewViewport');
+        const canvas = document.getElementById('previewCanvas');
+        const pageInfo = document.getElementById('previewPageInfo');
+
+        if (viewport) viewport.classList.add('bg-slate-200');
+        if (canvas) canvas.style.display = 'block';
+        if (pageInfo) pageInfo.textContent = '- / -';
+
         try {
-            const response = await fetch(url);
+            const response = await fetch(url, { cache: 'no-store' });
+            if (!response.ok) throw new Error('Gagal mengambil file PDF');
             const bytes = await response.arrayBuffer();
+            if (!bytes.byteLength) throw new Error('File PDF kosong');
+
             previewPdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
             previewTotalPages = previewPdfDoc.numPages;
             previewCurrentPage = 1;
             await renderPreviewPage();
         } catch (e) {
             console.error('Gagal memuat PDF preview:', e);
+            if (viewport) {
+                viewport.classList.remove('bg-slate-200');
+                viewport.classList.add('bg-rose-50');
+            }
+            if (canvas) canvas.style.display = 'none';
+            if (pageInfo) pageInfo.textContent = 'Tidak bisa dibuka';
+            if (viewport) {
+                viewport.innerHTML = '<div class="text-center text-sm text-rose-600"><i class="fa-solid fa-file-circle-xmark text-3xl mb-2 block"></i><p>File PDF tidak dapat dibuka saat ini.</p></div>';
+            }
         }
     }
 
@@ -290,5 +290,4 @@
     }
 </script>
 
-</body>
-</html>
+</x-app-shell>

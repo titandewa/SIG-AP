@@ -28,18 +28,18 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        $userRole = strtolower(Auth::user()->role);
+        $userRole = strtolower(Auth::user()->role ?? '');
 
         // Redirect otomatis sesuai role pengguna
         switch ($userRole) {
             case 'aspri':
-                return redirect()->intended(route('app.aspri.dashboard', absolute: false));
+                return redirect()->route('app.aspri.dashboard');
             case 'petinggi':
-                return redirect()->intended(route('app.petinggi.dashboard', absolute: false));
+                return redirect()->route('app.petinggi.dashboard');
             case 'dirut':
-                return redirect()->intended(route('app.dirut.dashboard', absolute: false));
+                return redirect()->route('app.dirut.dashboard');
             default:
-                return redirect()->intended(route('dashboard', absolute: false));
+                return redirect()->route('login');
         }
     }
 
@@ -54,6 +54,6 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
-        return redirect('/login');
+        return redirect()->route('login');
     }
 }

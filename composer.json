@@ -6,10 +6,11 @@
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
-        "php": "^8.3",
+        "php": "^8.4",
         "endroid/qr-code": "^6.0",
         "kreait/laravel-firebase": "^7.2",
         "laravel/framework": "^13.8",
+        "laravel/octane": "^2.18",
         "laravel/tinker": "^3.0",
         "mpdf/mpdf": "^8.3",
         "setasign/fpdf": "^1.9",

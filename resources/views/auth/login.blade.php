@@ -93,7 +93,6 @@
                         <input type="checkbox" name="remember" class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
                         <span>Ingat saya</span>
                     </label>
-                    <a href="#" class="font-semibold text-indigo-600 hover:text-indigo-700">Lupa password?</a>
                 </div>
 
                 <div class="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-3">

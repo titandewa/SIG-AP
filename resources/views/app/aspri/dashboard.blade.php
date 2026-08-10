@@ -2,6 +2,7 @@
     ['label' => 'Dashboard', 'url' => route('app.aspri.dashboard'), 'icon' => 'fa-solid fa-gauge-high'],
     ['label' => 'Riwayat', 'url' => route('aspri.riwayat'), 'icon' => 'fa-solid fa-clock-rotate-left'],
 ]">
+@include('partials.fcm-notif')
 
     <div class="max-w-5xl mx-auto p-4 sm:p-6">
 

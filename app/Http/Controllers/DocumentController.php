@@ -209,7 +209,10 @@ class DocumentController extends Controller
 
         $document = DB::transaction(function () use ($request) {
             $file = $request->file('pdf_file');
-            $filePath = $file->store('documents/v1', 'public');
+
+            $safeTitle = Str::slug($request->title);
+            $fileName = $safeTitle . '_' . time() . '.' . $file->getClientOriginalExtension();
+            $filePath = $file->storeAs('documents/v1', $fileName, 'public');
 
             $document = Document::create([
                 'user_id' => Auth::id() ?? 1,

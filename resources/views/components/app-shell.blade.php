@@ -20,7 +20,7 @@
     <div class="min-h-screen flex flex-col">
         <nav class="{{ $roleColor === 'slate' ? 'bg-slate-900 text-white' : 'bg-indigo-900 text-white' }} px-3 sm:px-6 py-3 flex items-center justify-between gap-2 shadow-lg shrink-0 sticky top-0 z-30 border-b border-white/10 backdrop-blur">
             <div class="flex items-center gap-2 sm:gap-4 min-w-0">
-                <a href="/" class="bg-white/10 hover:bg-white/20 px-3 py-2 rounded-2xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition whitespace-nowrap shrink-0">
+                <a class="bg-white/10 hover:bg-white/20 px-3 py-2 rounded-2xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition whitespace-nowrap shrink-0">
                     <i class="fa-solid fa-shield-halved"></i>
                     <span>SIGAP_V1</span>
                 </a>

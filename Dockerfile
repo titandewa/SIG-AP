@@ -18,7 +18,7 @@ COPY --chown=www-data:www-data . .
 RUN composer install --optimize-autoloader --ignore-platform-req=ext-pdo_duckdb
 
 # Document the port Octane will listen on
-EXPOSE 8080
+EXPOSE 8081
 
 # Default command to start Octane in FrankenPHP worker mode
-CMD ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=8080"]
+CMD ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=8081"]

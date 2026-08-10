@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\PdfSignerController;
+use App\Http\Controllers\NotificationHistoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -81,7 +82,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/app/document/{id}/comment', [DocumentController::class, 'addComment'])->name('document.comment');
     Route::post('/fcm/save-token', [App\Http\Controllers\FcmController::class, 'saveToken']);
     Route::get('/notifications/history', [App\Http\Controllers\NotificationHistoryController::class, 'index'])->name('notifications.history');
-    
+    Route::post('/notifications/{id}/read', [NotificationHistoryController::class, 'markRead'])->name('notifications.read');
+    Route::post('/notifications/clear', [NotificationHistoryController::class, 'clearAll'])->name('notifications.clear');
     // Route khusus Aspri
     Route::middleware(['role:aspri'])->group(function () {
         Route::post('/app/aspri/revisi/{id}', [DocumentController::class, 'uploadRevision'])->name('aspri.revisi');

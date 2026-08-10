@@ -11,6 +11,22 @@
             Hanya menampilkan dokumen yang sudah kamu sahkan/tandatangani.
         </p>
 
+        <!-- Search -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-6">
+            <form method="GET" action="{{ route('dirut.riwayat') }}" class="flex flex-wrap items-center gap-3">
+                <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari judul atau nomor SK..."
+                    class="text-xs border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 flex-1 min-w-[180px]">
+
+                <button type="submit" class="text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg transition">
+                    Cari
+                </button>
+
+                @if(request('search'))
+                    <a href="{{ route('dirut.riwayat') }}" class="text-xs text-rose-600 hover:underline">Reset filter</a>
+                @endif
+            </form>
+        </div>
+
         <!-- List Dokumen yang Sudah Disahkan -->
         <div class="space-y-4">
             @forelse($documents as $document)

@@ -6,7 +6,8 @@
     ];
     $riwayatRoutes = [
         'aspri' => 'aspri.riwayat',
-        // isi sesuai nama route riwayat untuk petinggi & dirut kalau ada
+        'petinggi' => 'petinggi.riwayat',
+        'dirut' => 'dirut.riwayat',
     ];
     $userRole = auth()->user()->role ?? 'aspri';
     $dashboardUrl = isset($dashboardRoutes[$userRole]) ? route($dashboardRoutes[$userRole]) : '/';

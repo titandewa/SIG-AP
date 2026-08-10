@@ -14,10 +14,12 @@ class NotificationHistory extends Model
         'channel',
         'status',
         'data',
+        'read_at',
     ];
 
     protected $casts = [
         'data' => 'array',
+        'read_at' => 'datetime',
     ];
 
     public function user()

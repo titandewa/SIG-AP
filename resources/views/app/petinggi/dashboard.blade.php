@@ -3,13 +3,15 @@
     ['label' => 'Riwayat', 'url' => route('petinggi.riwayat'), 'icon' => 'fa-solid fa-clock-rotate-left'],
 ]">
     <style>
-        html, body { height: 100%; overflow: hidden; }
+        @media (min-width: 1024px) {
+            html, body { height: 100%; overflow: hidden; }
+        }
         #docListSidebar::-webkit-scrollbar, #reviewPanel::-webkit-scrollbar { width: 8px; }
         #docListSidebar::-webkit-scrollbar-thumb, #reviewPanel::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     </style>
     @include('partials.fcm-notif')
 
-<div class="flex flex-col h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] -m-3 sm:-m-5 lg:-m-8 overflow-hidden">
+<div class="flex flex-col lg:h-[calc(100vh-64px)] -m-3 sm:-m-5 lg:-m-8 lg:overflow-hidden">
     <!-- Bar khusus toggle daftar dokumen (mobile only) -->
     <div class="lg:hidden bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center justify-between shrink-0">
         <span class="text-slate-300 text-xs font-semibold">Lembar Review SK</span>
@@ -27,7 +29,8 @@
     @endif
 
     @php
-        $approvals = $approvals->where('status', '!=', 'TERIMA')->values();
+        // Semua approval tetap ditampilkan (bukan cuma yang MENUNGGU). Controller sudah
+        // mengurutkan: MENUNGGU (belum diputuskan) di atas, sudah diputuskan di bawah.
     @endphp
 
     <!-- Backdrop mobile (hanya untuk drawer list dokumen) -->
@@ -44,14 +47,18 @@
             </div>
             <div class="flex-1 overflow-y-auto p-3 space-y-2">
                 @forelse($approvals as $app)
+                    @php $isDecided = $app->status !== 'MENUNGGU'; @endphp
                     <button onclick="selectDocument({{ $app->document_id }})" id="listitem-{{ $app->document_id }}"
                         class="doc-list-item w-full text-left p-3 rounded-xl border transition
+                        {{ $isDecided ? 'opacity-60' : '' }}
                         {{ $loop->first ? 'bg-indigo-600/20 border-indigo-500' : 'bg-slate-950/50 border-slate-800 hover:border-slate-700' }}">
                         <div class="flex justify-between items-start gap-2">
                             <p class="font-semibold text-white text-xs leading-snug line-clamp-2">{{ $app->document->title }}</p>
                             <span class="shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded uppercase
                                 {{ $app->status === 'PENDING' ? 'bg-amber-500/20 text-amber-400' : '' }}
                                 {{ $app->status === 'TOLAK' ? 'bg-rose-500/20 text-rose-400' : '' }}
+                                {{ $app->status === 'TERIMA' ? 'bg-emerald-500/20 text-emerald-400' : '' }}
+                                {{ $app->status === 'DIBATALKAN' ? 'bg-slate-600/40 text-slate-400' : '' }}
                                 {{ $app->status === 'MENUNGGU' ? 'bg-slate-700 text-slate-300' : '' }}">
                                 {{ $app->status }}
                             </span>
@@ -121,6 +128,29 @@
                 @foreach($approvals as $app)
                     <div id="panel-{{ $app->document_id }}" class="doc-panel space-y-3 {{ $loop->first ? '' : 'hidden' }}">
 
+                        <!-- Status semua Validator yang ditugaskan untuk dokumen ini -->
+                        <div class="bg-slate-800/60 rounded-lg p-3 space-y-2">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Status Validator</p>
+                            @foreach($app->document->approvals as $reviewer)
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="text-xs text-slate-200 truncate">
+                                        {{ $reviewer->user->name ?? 'Validator' }}
+                                        @if($reviewer->user_id === auth()->id())
+                                            <span class="text-slate-500">(Kamu)</span>
+                                        @endif
+                                    </span>
+                                    <span class="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase
+                                        {{ $reviewer->status === 'TERIMA' ? 'bg-emerald-500/20 text-emerald-400' : '' }}
+                                        {{ $reviewer->status === 'TOLAK' ? 'bg-rose-500/20 text-rose-400' : '' }}
+                                        {{ $reviewer->status === 'PENDING' ? 'bg-amber-500/20 text-amber-400' : '' }}
+                                        {{ $reviewer->status === 'DIBATALKAN' ? 'bg-slate-600/40 text-slate-400' : '' }}
+                                        {{ $reviewer->status === 'MENUNGGU' ? 'bg-slate-700 text-slate-300' : '' }}">
+                                        {{ $reviewer->status === 'MENUNGGU' ? 'Belum Menjawab' : $reviewer->status }}
+                                    </span>
+                                </div>
+                            @endforeach
+                        </div>
+
                         @if($app->document->comments->count() > 0)
                             <div class="bg-slate-800/60 rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
                                 @foreach($app->document->comments as $comment)
@@ -148,20 +178,27 @@
 
                         <form action="{{ route('petinggi.review', $app->document_id) }}" method="POST" class="space-y-3 pt-2 border-t border-slate-800">
                             @csrf
-                            <div class="grid grid-cols-3 gap-2 pt-1">
-                                <button type="button" onclick="askConfirm(this.closest('form'), 'TERIMA', 'MENYETUJUI dokumen ini')"
-                                    class="px-2 sm:px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
-                                    <i class="fa-solid fa-check hidden sm:inline"></i> <span>Setujui</span>
-                                </button>
-                                <button type="button" onclick="askConfirm(this.closest('form'), 'PENDING', 'meminta REVISI untuk dokumen ini')"
-                                    class="px-2 sm:px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
-                                    <i class="fa-solid fa-clock-rotate-left hidden sm:inline"></i> <span>Revisi</span>
-                                </button>
-                                <button type="button" onclick="askConfirm(this.closest('form'), 'TOLAK', 'MENOLAK dokumen ini')"
-                                    class="px-2 sm:px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
-                                    <i class="fa-solid fa-xmark hidden sm:inline"></i> <span>Tolak</span>
-                                </button>
-                            </div>
+                            @if($app->status === 'MENUNGGU')
+                                <div class="grid grid-cols-3 gap-2 pt-1">
+                                    <button type="button" onclick="askConfirm(this.closest('form'), 'TERIMA', 'MENYETUJUI dokumen ini')"
+                                        class="px-2 sm:px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
+                                        <i class="fa-solid fa-check hidden sm:inline"></i> <span>Setujui</span>
+                                    </button>
+                                    <button type="button" onclick="askConfirm(this.closest('form'), 'PENDING', 'meminta REVISI untuk dokumen ini')"
+                                        class="px-2 sm:px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
+                                        <i class="fa-solid fa-clock-rotate-left hidden sm:inline"></i> <span>Revisi</span>
+                                    </button>
+                                    <button type="button" onclick="askConfirm(this.closest('form'), 'TOLAK', 'MENOLAK dokumen ini')"
+                                        class="px-2 sm:px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
+                                        <i class="fa-solid fa-xmark hidden sm:inline"></i> <span>Tolak</span>
+                                    </button>
+                                </div>
+                            @else
+                                <p class="text-[11px] text-slate-500 text-center py-1">
+                                    <i class="fa-solid fa-circle-check mr-1"></i>
+                                    Kamu sudah memberikan keputusan <b>{{ $app->status === 'MENUNGGU' ? '' : $app->status }}</b> untuk dokumen ini.
+                                </p>
+                            @endif
                         </form>
                     </div>
                 @endforeach

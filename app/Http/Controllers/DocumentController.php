@@ -97,13 +97,21 @@ class DocumentController extends Controller
         $query = Document::with(['latestVersion', 'approvals.user'])
             ->where('user_id', Auth::id())
             ->whereIn('status', ['DISETUJUI', 'DITOLAK']);
-
+    
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
-
+    
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                ->orWhere('document_number', 'like', "%{$search}%");
+            });
+        }
+    
         $documents = $query->orderBy('updated_at', 'desc')->get();
-
+    
         return view('app.aspri.riwayat', compact('documents'));
     }
 
@@ -119,7 +127,7 @@ class DocumentController extends Controller
             ])
             ->where('user_id', Auth::id())
             ->whereHas('document', function ($q) {
-                $q->where('status', 'DITINJAU');
+                $q->whereIn('status', ['DITINJAU', 'PENDING']);
             })
             ->latest()
             ->get();
@@ -130,17 +138,25 @@ class DocumentController extends Controller
     public function riwayatPetinggi(Request $request)
     {
         $userId = auth()->id();
-
-        $query = DocumentApproval::with(['document.user', 'document.latestVersion'])
+    
+        $query = DocumentApproval::with(['document.user', 'document.latestVersion', 'document.approvals.user'])
             ->where('user_id', $userId)
-            ->whereIn('status', ['TERIMA', 'TOLAK']);
-
+            ->whereIn('status', ['TERIMA', 'TOLAK', 'DIBATALKAN']);
+    
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
-
+    
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->whereHas('document', function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                ->orWhere('document_number', 'like', "%{$search}%");
+            });
+        }
+    
         $approvals = $query->latest('updated_at')->get();
-
+    
         return view('app.petinggi.riwayat', compact('approvals'));
     }
 
@@ -155,14 +171,22 @@ class DocumentController extends Controller
         return view('app.dirut.dashboard', compact('readyToSignDocuments'));
     }
 
-    public function riwayatDirut()
+    public function riwayatDirut(Request $request)
     {
-        $documents = Document::where('status', 'DISETUJUI')
+        $query = Document::where('status', 'DISETUJUI')
             ->whereNotNull('signed_file_path')
-            ->with('user')
-            ->latest('updated_at')
-            ->get();
-
+            ->with('user');
+    
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                ->orWhere('document_number', 'like', "%{$search}%");
+            });
+        }
+    
+        $documents = $query->latest('updated_at')->get();
+    
         return view('app.dirut.riwayat', compact('documents'));
     }
 
@@ -318,25 +342,25 @@ class DocumentController extends Controller
             'status' => 'required|in:TERIMA,PENDING,TOLAK',
             'comment' => 'nullable|string',
         ]);
-
+    
         $userId = Auth::id() ?? $request->user_id;
-
+    
         $approval = DocumentApproval::where('document_id', $id)
             ->where('user_id', $userId)
             ->firstOrFail();
-
+    
         // Guard: dokumen sudah diputuskan (ditolak/revisi/disetujui semua) oleh proses lain
         if ($approval->document->status !== 'DITINJAU') {
             return redirect()->back()->with('error', 'Dokumen ini sudah tidak dalam status ditinjau, keputusan tidak disimpan.');
         }
-
+    
         // Guard: kamu sudah pernah merespon approval ini
         if ($approval->status !== 'MENUNGGU') {
             return redirect()->back()->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
         }
-
+    
         $approval->update(['status' => $request->status]);
-
+    
         // Jika ada komentar diskusi
         if ($request->filled('comment')) {
             Comment::create([
@@ -345,17 +369,22 @@ class DocumentController extends Controller
                 'comment' => $request->comment,
             ]);
         }
-
+    
         // Cek status kolektif dari seluruh Validator
         $doc = Document::with(['approvals', 'user'])->findOrFail($id);
-
+    
         if ($request->status === 'TOLAK') {
             $doc->update(['status' => 'DITOLAK']);
-
+    
+            // Batalkan approval petinggi lain yang belum sempat memutuskan
+            DocumentApproval::where('document_id', $doc->id)
+                ->where('status', 'MENUNGGU')
+                ->update(['status' => 'DIBATALKAN']);
+    
             // Kirim WA + FCM ke Administrator (Dokumen Ditolak) — hanya Administrator pengirim
             if ($doc->user) {
                 $this->sendWaNotifAspri($doc->user, $doc, 'DITOLAK oleh Validator');
-
+    
                 $this->fcmService->sendToUser(
                     $doc->user,
                     'Dokumen Ditolak',
@@ -369,11 +398,11 @@ class DocumentController extends Controller
             }
         } elseif ($request->status === 'PENDING') {
             $doc->update(['status' => 'PENDING']);
-
+    
             // Kirim WA + FCM ke Administrator (Dokumen Perlu Revisi / Pending) — hanya Administrator pengirim
             if ($doc->user) {
                 $this->sendWaNotifAspri($doc->user, $doc, 'PENDING / PERLU REVISI');
-
+    
                 $this->fcmService->sendToUser(
                     $doc->user,
                     'Dokumen Perlu Revisi',
@@ -389,15 +418,15 @@ class DocumentController extends Controller
             // Cek apakah SEMUA Validator sudah setuju (TERIMA)
             $totalApprovals = $doc->approvals->count();
             $acceptedApprovals = $doc->approvals->where('status', 'TERIMA')->count();
-
+    
             if ($totalApprovals === $acceptedApprovals) {
                 $doc->update(['status' => 'SIAP_TTD']);
-
+    
                 // Kirim WA + FCM ke Direksi bahwa dokumen siap ditandatangani
                 $dirut = User::where('role', 'dirut')->first(); // Ambil user yang rolenya Direksi
                 if ($dirut) {
                     $this->sendWaNotifDirut($dirut, $doc);
-
+    
                     $this->fcmService->sendToUser(
                         $dirut,
                         'Dokumen Siap TTD',
@@ -411,7 +440,7 @@ class DocumentController extends Controller
                 }
             }
         }
-
+    
         return redirect()->back()->with('success', 'Keputusan Anda berhasil disimpan!');
     }
 

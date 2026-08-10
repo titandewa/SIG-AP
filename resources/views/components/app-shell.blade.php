@@ -2,7 +2,7 @@
 
 @php
     $notifications = auth()->check()
-        ? auth()->user()->notificationHistories()->latest()->take(5)->get()
+        ? auth()->user()->notificationHistories()->whereNull('read_at')->latest()->take(5)->get()
         : collect();
 @endphp
 
@@ -66,7 +66,7 @@
                         </button>
                     @endif
 
-                    <div id="notifDropdownMenu" class="hidden absolute right-0 mt-2 w-[88vw] max-w-[22rem] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden z-50">
+                    <div id="notifDropdownMenu" class="hidden fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[22rem] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden z-50">
                         <div class="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
                             <div>
                                 <p class="text-sm font-semibold text-slate-800">Notifikasi terbaru</p>
@@ -77,7 +77,9 @@
 
                         <div class="max-h-80 overflow-y-auto divide-y divide-slate-100">
                             @forelse($notifications as $notification)
-                                <a href="{{ route('notifications.history') }}" class="block px-4 py-3 hover:bg-slate-50 transition">
+                                <a href="{{ $notification->data['url'] ?? route('notifications.history') }}"
+                                    onclick="markNotifRead(event, {{ $notification->id }}, '{{ $notification->data['url'] ?? route('notifications.history') }}')"
+                                    class="block px-4 py-3 hover:bg-slate-50 transition">
                                     <div class="flex items-start gap-2">
                                         <span class="mt-1.5 h-2.5 w-2.5 rounded-full bg-indigo-500 shrink-0"></span>
                                         <div class="min-w-0">
@@ -94,6 +96,15 @@
                                 </div>
                             @endforelse
                         </div>
+
+                        @if($notifications->isNotEmpty())
+                            <form method="POST" action="{{ route('notifications.clear') }}" class="border-t border-slate-200">
+                                @csrf
+                                <button type="submit" class="w-full px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition">
+                                    Hapus semua notifikasi
+                                </button>
+                            </form>
+                        @endif
                     </div>
                 </div>
                 @endauth
@@ -136,6 +147,19 @@
     </div>
 
     <script>
+        function markNotifRead(event, id, url) {
+            event.preventDefault();
+            fetch(`/notifications/${id}/read`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json'
+                }
+            }).finally(() => {
+                window.location.href = url;
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             const wrapper = document.getElementById('notifDropdownWrapper');
             const button = document.getElementById('notifDropdownButton');
@@ -156,4 +180,4 @@
         });
     </script>
 </body>
-</html>
+</html> 

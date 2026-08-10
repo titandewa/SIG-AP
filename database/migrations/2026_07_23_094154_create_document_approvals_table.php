@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('document_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete(); // Petinggi / Reviewer
-            $table->enum('status', ['MENUNGGU', 'TERIMA', 'PENDING', 'TOLAK'])->default('MENUNGGU');
+            $table->enum('status', ['MENUNGGU', 'TERIMA', 'PENDING', 'TOLAK', 'DIBATALKAN'])->default('MENUNGGU');
             $table->string('approved_version')->nullable(); // Menandai disetujui pada versi berapa
             $table->timestamps();
         });

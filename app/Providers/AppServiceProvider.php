@@ -25,12 +25,16 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $request = $this->app['request'];
-        $rootUrl = $request->getSchemeAndHttpHost();
+
+        $host = $request->headers->get('x-forwarded-host') ?? $request->getHost();
+        $scheme = $request->headers->get('x-forwarded-proto') ?? $request->getScheme();
+
+        $rootUrl = $scheme . '://' . $host;
 
         if (!empty($rootUrl)) {
             config(['app.url' => $rootUrl]);
             URL::forceRootUrl($rootUrl);
-            URL::forceScheme($request->getScheme());
+            URL::forceScheme($scheme);
         }
     }
 }

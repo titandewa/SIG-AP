@@ -130,6 +130,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.27/dist/interact.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script>
         if (window.pdfjsLib) {
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -142,15 +143,16 @@
         let pdfDocInstance = null;
         let currentPage = 1;
         let totalPagesCount = 0;
-        let pdfPageWidth = 0;   
+        let pdfPageWidth = 0;
         let pdfPageHeight = 0;
-        let currentRenderScale = 1; 
+        let currentRenderScale = 1;
 
         let signatureInstances = [];
         let instanceCounter = 0;
         const thumbRenderedPages = new Set();
         let thumbObserver = null;
-        let zoomLevel = 1; 
+        let zoomLevel = 1;
+        let currentRenderTask = null; // buat cancel render yang lagi jalan biar nggak bentrok di canvas yang sama
 
         async function loadPdf() {
             if (!window.pdfjsLib) {
@@ -175,7 +177,7 @@
             document.getElementById('totalPages').textContent = totalPagesCount;
             document.getElementById('pageInput').max = totalPagesCount;
 
-            currentPage = totalPagesCount; 
+            currentPage = totalPagesCount;
             document.getElementById('pageInput').value = currentPage;
 
             await buildThumbnailList();
@@ -204,7 +206,7 @@
 
             const firstPage = await pdfDocInstance.getPage(1);
             const ratio = firstPage.getViewport({ scale: 1 }).height / firstPage.getViewport({ scale: 1 }).width;
-            const thumbWidth = 128; 
+            const thumbWidth = 128;
 
             thumbObserver = new IntersectionObserver(onThumbIntersect, {
                 root: sidebar, rootMargin: '200px 0px', threshold: 0.01
@@ -244,7 +246,7 @@
                 if (thumbRenderedPages.has(pageNum)) continue;
                 thumbRenderedPages.add(pageNum);
                 thumbObserver.unobserve(box);
-                renderThumbPage(pageNum, box); 
+                renderThumbPage(pageNum, box);
             }
         }
 
@@ -280,15 +282,21 @@
         }
 
         async function renderPage(num) {
+            // Batalkan render sebelumnya kalau masih jalan, biar nggak rebutan pakai canvas yang sama
+            if (currentRenderTask) {
+                try { currentRenderTask.cancel(); } catch (e) {}
+                currentRenderTask = null;
+            }
+
             const page = await pdfDocInstance.getPage(num);
             const rawViewport = page.getViewport({ scale: 1 });
             pdfPageWidth = rawViewport.width;
             pdfPageHeight = rawViewport.height;
 
             const viewerScroll = document.getElementById('viewerScroll');
-            const availableWidth = viewerScroll.clientWidth - 40;   
+            const availableWidth = viewerScroll.clientWidth - 40;
             const scaleByWidth = availableWidth / rawViewport.width;
-            currentRenderScale = Math.max(scaleByWidth, 0.1) * zoomLevel; 
+            currentRenderScale = Math.max(scaleByWidth, 0.1) * zoomLevel;
 
             const viewport = page.getViewport({ scale: currentRenderScale });
             const pixelRatio = window.devicePixelRatio || 1;
@@ -303,7 +311,22 @@
             canvas.style.height = viewport.height + 'px';
             ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 
-            await page.render({ canvasContext: ctx, viewport }).promise;
+            const task = page.render({ canvasContext: ctx, viewport });
+            currentRenderTask = task;
+
+            try {
+                await task.promise;
+            } catch (err) {
+                // Render dibatalkan karena keburu ada render baru menyusul -> aman, abaikan saja
+                if (err && err.name === 'RenderingCancelledException') {
+                    return;
+                }
+                throw err;
+            } finally {
+                if (currentRenderTask === task) {
+                    currentRenderTask = null;
+                }
+            }
 
             updateNavButtons();
             renderVisibleSignatures();
@@ -401,7 +424,7 @@
                             const relX = dropCenterX - containerRect.left - 80;
                             const relY = dropCenterY - containerRect.top - 35;
                             addSignatureInstance(relX, relY);
-                            closeAllPanels(); 
+                            closeAllPanels();
                         }
 
                         clone.remove();
@@ -478,30 +501,25 @@
             const boxWidth = 160;
             const boxHeight = 70;
 
-            // Hitung posisi tengah berdasarkan area yang sedang aktif di-scroll (viewport container)
             const currentScrollX = viewerScroll.scrollLeft;
             const currentScrollY = viewerScroll.scrollTop;
             const visibleWidth = viewerScroll.clientWidth;
             const visibleHeight = viewerScroll.clientHeight;
 
-            // Tentukan titik tengah relatif terhadap container scroll
             let centerX = currentScrollX + (visibleWidth / boxWidth) * 0 + (visibleWidth - boxWidth) / 2;
             let centerY = currentScrollY + (visibleHeight - boxHeight) / 2;
 
-            // Pastikan posisi tidak keluar dari batas ukuran canvas PDF
             const maxLeft = Math.max(0, canvas.clientWidth - boxWidth);
             const maxTop = Math.max(0, canvas.clientHeight - boxHeight);
 
-            // Konversi koordinat agar pas di tengah area canvas yang tampil
             centerX = Math.max(0, Math.min(centerX - (viewerScroll.offsetLeft || 0), maxLeft));
             centerY = Math.max(0, Math.min(centerY - (viewerScroll.offsetTop || 0), maxTop));
 
-            // Fallback sederhana jika perhitungan container terhadap scroll pas di tengah-tengah dokumen
             const fallbackX = (canvas.clientWidth - boxWidth) / 2;
             const fallbackY = currentScrollY + (visibleHeight / 2) - boxHeight;
 
-            finalX = Math.max(0, Math.min(fallbackX, maxLeft));
-            finalY = Math.max(0, Math.min(fallbackY, maxTop));
+            const finalX = Math.max(0, Math.min(fallbackX, maxLeft));
+            const finalY = Math.max(0, Math.min(fallbackY, maxTop));
 
             addSignatureInstance(finalX, finalY);
             closeAllPanels();

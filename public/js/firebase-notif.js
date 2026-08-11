@@ -1,3 +1,16 @@
+function showDebug(msg) {
+  let box = document.getElementById("fcmDebugBox");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "fcmDebugBox";
+    box.style.cssText = "position:fixed;bottom:0;left:0;right:0;max-height:50vh;overflow-y:auto;background:#000;color:#0f0;font-size:11px;padding:8px;z-index:99999;white-space:pre-wrap;font-family:monospace;";
+    document.body.appendChild(box);
+  }
+  const line = document.createElement("div");
+  line.textContent = new Date().toLocaleTimeString() + " - " + msg;
+  box.appendChild(line);
+}
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 
@@ -17,29 +30,37 @@ const VAPID_KEY = "BNpe0M-28BH0N1vupdLEKwomJeeTW5HJKwXrN-iEqULLEzMdGnTUX-vmwITtp
 
 async function requestPermissionAndGetToken() {
   try {
-    // Cek apakah browser mendukung Notification API
+    showDebug("Mulai proses...");
+
     if (!("Notification" in window)) {
-      console.log("Browser ini tidak mendukung notifikasi.");
+      showDebug("Browser tidak mendukung Notification API");
       return;
     }
+    showDebug("Notification API tersedia");
 
     const permission = await Notification.requestPermission();
+    showDebug("Permission: " + permission);
     if (permission !== "granted") {
-      console.log("Izin notifikasi ditolak.");
+      showDebug("Izin ditolak, stop.");
       return;
     }
 
+    showDebug("Registrasi service worker...");
     const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-    await navigator.serviceWorker.ready;
+    showDebug("SW registered: " + registration.scope);
 
+    await navigator.serviceWorker.ready;
+    showDebug("SW ready");
+
+    showDebug("Meminta token FCM...");
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: registration,
     });
 
     if (token) {
-      console.log("FCM Token:", token);
-      await fetch("/fcm/save-token", {
+      showDebug("Token didapat: " + token.substring(0, 20) + "...");
+      const res = await fetch("/fcm/save-token", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -47,10 +68,12 @@ async function requestPermissionAndGetToken() {
         },
         body: JSON.stringify({ token }),
       });
+      showDebug("Save token status: " + res.status);
     } else {
-      console.log("Gagal mendapatkan token.");
+      showDebug("Gagal dapat token (null).");
     }
   } catch (err) {
+    showDebug("ERROR: " + err.name + " - " + err.message);
     console.error("Error saat setup FCM:", err);
   }
 }

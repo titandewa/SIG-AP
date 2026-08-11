@@ -120,4 +120,35 @@ Route::get('/test-firebase', function () {
     dd('Firebase connected!', $messaging);
 });
 
+// Test route untuk mengirim notifikasi FCM ke user yang sedang login
+Route::get('/test-fcm-notification', function () {
+    if (!Auth::check()) {
+        return 'Silakan login terlebih dahulu.';
+    }
+
+    $user = Auth::user();
+    $tokens = $user->fcmTokens()->pluck('token')->toArray();
+
+    if (empty($tokens)) {
+        return 'User tidak memiliki token FCM. Pastikan Anda sudah memberikan izin notifikasi di browser.';
+    }
+
+    try {
+        $fcmService = app(\App\Services\FcmService::class);
+        $fcmService->sendToUser(
+            $user,
+            'Tes Notifikasi Push',
+            'Ini adalah notifikasi push percobaan dari SIGAP. Jika Anda melihat ini, FCM berfungsi!',
+            [
+                'type' => 'test_notification',
+                'url' => route('app.aspri.dashboard'),
+            ]
+        );
+
+        return 'Notifikasi FCM berhasil dikirim ke ' . count($tokens) . ' device token(s).';
+    } catch (\Throwable $e) {
+        return 'Error mengirim FCM: ' . $e->getMessage();
+    }
+});
+
 require __DIR__.'/auth.php';

@@ -17,6 +17,12 @@ const VAPID_KEY = "BNpe0M-28BH0N1vupdLEKwomJeeTW5HJKwXrN-iEqULLEzMdGnTUX-vmwITtp
 
 async function requestPermissionAndGetToken() {
   try {
+    // Cek apakah browser mendukung Notification API
+    if (!("Notification" in window)) {
+      console.log("Browser ini tidak mendukung notifikasi.");
+      return;
+    }
+
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
       console.log("Izin notifikasi ditolak.");
@@ -51,6 +57,7 @@ async function requestPermissionAndGetToken() {
 
 requestPermissionAndGetToken();
 
+// Handler untuk pesan yang diterima saat app di foreground
 onMessage(messaging, (payload) => {
   console.log("Pesan diterima (foreground):", payload);
   const data = payload.data || {};
@@ -58,6 +65,8 @@ onMessage(messaging, (payload) => {
   const notif = new Notification(data.title || "SIGAP", {
     body: data.body || "",
     icon: "/favicon.ico",
+    badge: "/favicon.ico",
+    data: data,
   });
 
   notif.onclick = () => {

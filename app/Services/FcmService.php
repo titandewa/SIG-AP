@@ -56,11 +56,23 @@ class FcmService
 
         $message = CloudMessage::new()->withData($payload);
 
-        foreach ($tokens as $token) {
-            try {
-                $this->messaging->send($message->withToken($token));
-            } catch (\Throwable $e) {
-                \App\Models\FcmToken::where('token', $token)->delete();
+        // Kirim ke semua token sekaligus menggunakan sendMulticast
+        try {
+            $result = $this->messaging->sendMulticast($message, $tokens);
+
+            // Hapus token yang tidak valid / sudah tidak aktif
+            $invalidTokens = $result->invalidTokens();
+            if (!empty($invalidTokens)) {
+                \App\Models\FcmToken::whereIn('token', $invalidTokens)->delete();
+            }
+        } catch (\Throwable $e) {
+            // Fallback: kirim satu per satu jika multicast gagal
+            foreach ($tokens as $token) {
+                try {
+                    $this->messaging->send($message->withToken($token));
+                } catch (\Throwable $e) {
+                    \App\Models\FcmToken::where('token', $token)->delete();
+                }
             }
         }
     }

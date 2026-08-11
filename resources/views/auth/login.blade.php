@@ -95,13 +95,13 @@
                     </label>
                 </div>
 
-                <div class="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-3">
-                    <button type="button" id="requestNotificationBtn" onclick="window.requestNotificationPermission()"
-                        class="flex items-center gap-2 text-sm font-semibold text-indigo-700 transition hover:text-indigo-800">
+                <div class="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-3 space-y-2">
+                    <button type="button" id="testNotificationBtn" onclick="window.showLocalNotification()"
+                        class="flex items-center gap-2 text-sm font-semibold text-emerald-700 transition hover:text-emerald-800">
                         <i class="fa-solid fa-bell"></i>
-                        <span>Minta notifikasi</span>
+                        <span>Tampilkan notifikasi browser</span>
                     </button>
-                    <p id="notificationStatus" class="mt-1 text-[11px] leading-5 text-slate-500">Izinkan notifikasi agar kamu menerima update penting.</p>
+                    <p id="notificationStatus" class="mt-1 text-[11px] leading-5 text-slate-500">Klik untuk meminta izin dan menampilkan notifikasi browser.</p>
                 </div>
 
                 <button type="submit"
@@ -121,84 +121,55 @@
 
     <script src='/app.js'></script>
 
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-        import { getMessaging, getToken } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js';
-
-        const firebaseConfig = {
-            apiKey: 'AIzaSyDXk4pegvTKWiNPFaXKtZoxdvyAxCeIdD0',
-            authDomain: 'sigap-notif-84bb6.firebaseapp.com',
-            projectId: 'sigap-notif-84bb6',
-            storageBucket: 'sigap-notif-84bb6.firebasestorage.app',
-            messagingSenderId: '595314558998',
-            appId: '1:595314558998:web:9dbbaeac5af18c7bea4d37',
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const messaging = getMessaging(app);
-        const VAPID_KEY = 'BNpe0M-28BH0N1vupdLEKwomJeeTW5HJKwXrN-iEqULLEzMdGnTUX-vmwITtp4ae2iE_6vDXnPKcEGYqiCnbzBQ';
-
-        window.requestNotificationPermission = async function () {
-            const button = document.getElementById('requestNotificationBtn');
+    <script>
+        // Menampilkan notifikasi browser lokal (tanpa FCM)
+        window.showLocalNotification = async function () {
+            const button = document.getElementById('testNotificationBtn');
             const status = document.getElementById('notificationStatus');
 
+            // Cek dukungan browser
             if (!('Notification' in window)) {
                 status.textContent = 'Browser kamu belum mendukung notifikasi.';
                 return;
             }
 
+            // Cek apakah menggunakan HTTPS atau localhost
             if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
                 status.textContent = 'Notifikasi web hanya bekerja di HTTPS. Pakai domain HTTPS atau localhost.';
                 return;
             }
 
-            if (!('serviceWorker' in navigator)) {
-                status.textContent = 'Browser kamu belum mendukung service worker.';
-                return;
-            }
-
             button.disabled = true;
-            button.classList.add('opacity-60', 'cursor-not-allowed');
             button.querySelector('span').textContent = 'Meminta izin...';
 
             try {
+                // Minta izin notifikasi
                 const permission = await Notification.requestPermission();
+
                 if (permission !== 'granted') {
-                    status.textContent = 'Izin notifikasi ditolak. Kamu bisa mengaktifkannya nanti dari pengaturan browser.';
+                    status.textContent = 'Izin notifikasi ditolak. Aktifkan dari pengaturan browser.';
                     return;
                 }
 
-                const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-                await navigator.serviceWorker.ready;
-
-                const token = await getToken(messaging, {
-                    vapidKey: VAPID_KEY,
-                    serviceWorkerRegistration: registration,
+                // Tampilkan notifikasi langsung
+                const notification = new Notification('SIGAP - Notifikasi Berhasil', {
+                    body: 'Ini adalah notifikasi browser lokal. Push notification FCM sudah terhubung!',
+                    icon: '/favicon.ico',
+                    badge: '/favicon.ico',
                 });
 
-                if (token) {
-                    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-                    const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+                notification.onclick = function () {
+                    window.focus();
+                    this.close();
+                };
 
-                    await fetch('/fcm/save-token', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
-                        },
-                        body: JSON.stringify({ token }),
-                    });
-                    status.textContent = 'Izin notifikasi berhasil diberikan.';
-                } else {
-                    status.textContent = 'Gagal mendapatkan token notifikasi.';
-                }
+                status.textContent = 'Notifikasi berhasil ditampilkan!';
             } catch (error) {
                 console.error(error);
-                status.textContent = 'Gagal meminta izin notifikasi. Coba lagi sebentar.';
+                status.textContent = 'Gagal menampilkan notifikasi. Coba lagi.';
             } finally {
                 button.disabled = false;
-                button.classList.remove('opacity-60', 'cursor-not-allowed');
-                button.querySelector('span').textContent = 'Minta notifikasi';
+                button.querySelector('span').textContent = 'Tampilkan notifikasi browser';
             }
         };
     </script>

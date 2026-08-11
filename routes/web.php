@@ -30,6 +30,35 @@ Route::prefix('demo')->group(function () {
 // Public Verification (Bisa diakses publik tanpa login)
 Route::get('/verify/{hash}', [DocumentController::class, 'verifyDocument'])->name('public.verify');
 Route::get('/sign-pdf', [PdfSignerController::class, 'index']);
+
+// FCM - Simpan token (bisa diakses tanpa login, untuk halaman login)
+Route::post('/fcm/save-token', [App\Http\Controllers\FcmController::class, 'saveToken']);
+
+// FCM - Kirim notifikasi test (bisa diakses tanpa login, untuk halaman login)
+Route::post('/fcm/test-notification', function () {
+    $request = request();
+    $token = $request->input('token');
+
+    if (!$token) {
+        return response()->json(['status' => 'error', 'message' => 'Token tidak ditemukan.'], 400);
+    }
+
+    try {
+        $messaging = app('firebase.messaging');
+        $message = \Kreait\Firebase\Messaging\CloudMessage::new()->withData([
+            'title' => 'Tes Notifikasi Push',
+            'body' => 'Notifikasi push berhasil dikirim dari SIGAP!',
+            'type' => 'test_notification',
+            'url' => '/',
+        ]);
+
+        $messaging->send($message->withToken($token));
+
+        return response()->json(['status' => 'success', 'message' => 'Notifikasi test berhasil dikirim!']);
+    } catch (\Throwable $e) {
+        return response()->json(['status' => 'error', 'message' => 'Gagal mengirim: ' . $e->getMessage()], 500);
+    }
+});
 /*
 |--------------------------------------------------------------------------
 | 2. ROUTE APLIKASI UTAMA (Sistem Eksperimen Real)
@@ -80,7 +109,6 @@ Route::middleware(['auth'])->group(function () {
     })->name('dashboard');
 
     Route::post('/app/document/{id}/comment', [DocumentController::class, 'addComment'])->name('document.comment');
-    Route::post('/fcm/save-token', [App\Http\Controllers\FcmController::class, 'saveToken']);
     Route::get('/notifications/history', [App\Http\Controllers\NotificationHistoryController::class, 'index'])->name('notifications.history');
     Route::post('/notifications/{id}/read', [NotificationHistoryController::class, 'markRead'])->name('notifications.read');
     Route::post('/notifications/clear', [NotificationHistoryController::class, 'clearAll'])->name('notifications.clear');

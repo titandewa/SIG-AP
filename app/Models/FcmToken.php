@@ -8,10 +8,12 @@ class FcmToken extends Model
 {
     protected $fillable = ['user_id', 'token'];
 
+    protected $casts = [
+        'user_id' => 'integer',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 }
-
-

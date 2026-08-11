@@ -21,11 +21,11 @@
                     <div>
                         <div class="flex items-center gap-4 sm:gap-5">
                             <div class="flex h-16 w-16 items-center justify-center rounded-[22px] bg-white/6 shadow-[0_16px_40px_rgba(0,0,0,0.18)] ring-1 ring-white/10 backdrop-blur-sm sm:h-24 sm:w-24 sm:rounded-[26px]">
-                                <x-sigapp-logo-mark class="h-10 w-10 text-white sm:h-16 sm:w-16" />
+                                <x-sigapp-login-logo variant="mark" class="h-10 w-10 text-white sm:h-16 sm:w-16" />
                             </div>
                             <div>
-                                <div class="text-[32px] font-black leading-none tracking-tight sm:text-[54px]"><span class="text-white">SIG</span><span class="text-blue-400">APP</span></div>
-                                <div class="mt-2 flex items-center gap-3 text-[10px] font-semibold tracking-[0.28em] text-blue-100/90 sm:gap-4 sm:tracking-[0.42em]">
+                                <div class="text-[26px] font-black leading-none tracking-tight sm:text-[42px]"><span class="text-white">SIG</span><span class="text-blue-400">APP</span></div>
+                                <div class="mt-2 flex items-center gap-3 text-[9px] font-semibold tracking-[0.18em] text-blue-100/90 sm:gap-4 sm:tracking-[0.28em]">
                                     <span class="h-px w-9 bg-blue-400/80"></span>
                                     SIGN FASTER, WORK BETTER
                                     <span class="h-px w-9 bg-blue-400/80"></span>
@@ -34,12 +34,12 @@
                         </div>
 
                         <div class="mt-12 max-w-xl sm:mt-16 lg:mt-24">
-                            <h1 class="text-3xl font-extrabold leading-[1.08] tracking-tight text-white sm:text-4xl lg:text-5xl">
+                            <h1 class="text-[1.8rem] font-extrabold leading-[1.06] tracking-tight text-white sm:text-[2.15rem] lg:text-5xl">
                                 Kelola pengajuan dan
                                 <span class="block text-blue-400">approval dokumen</span>
                                 dengan lebih tenang.
                             </h1>
-                            <p class="mt-5 max-w-lg text-sm leading-7 text-slate-200/90 sm:text-base sm:leading-8 lg:text-lg">
+                            <p class="mt-4 max-w-lg text-[12px] leading-6 text-slate-200/90 sm:text-sm sm:leading-7 lg:text-base">
                                 Sistem yang membantu tim mengatur dokumen, review, dan pengesahan secara cepat, aman, dan terarah.
                             </p>
                         </div>
@@ -63,10 +63,10 @@
                 <div class="mx-auto flex h-full max-w-[450px] flex-col justify-center">
                     <div class="mb-7 flex items-start gap-4 sm:mb-8">
                         <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-blue-100 bg-white shadow-[0_14px_30px_rgba(37,99,235,0.08)]">
-                            <x-sigapp-logo-mark class="h-8 w-8 text-blue-600" />
+                            <x-sigapp-login-logo variant="mark" class="h-8 w-8 text-blue-600" />
                         </div>
                         <div>
-                            <h2 class="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-[2.15rem]">Masuk ke akun Anda</h2>
+                            <h2 class="text-[1.65rem] font-extrabold tracking-tight text-slate-900 sm:text-[1.95rem]">Masuk ke akun Anda</h2>
                             <p class="mt-2 max-w-md text-sm leading-6 text-slate-500 sm:text-[15px]">Masukkan email dan password untuk melanjutkan ke dashboard SIGAPP.</p>
                         </div>
                     </div>
@@ -93,7 +93,7 @@
                                 <span class="absolute left-4 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center text-slate-400">
                                     <i class="fa-solid fa-envelope text-[15px]"></i>
                                 </span>
-                                <input id="email" type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="username" placeholder="dhita@sigapp.com" class="h-14 w-full rounded-2xl border border-slate-200/90 bg-[linear-gradient(180deg,_#f8fbff_0%,_#edf4ff_100%)] pl-12 pr-4 text-[15px] text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100">
+                                <input id="email" type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="username" placeholder="Masukkan email SIGAP" class="h-14 w-full rounded-2xl border border-slate-200/90 bg-[linear-gradient(180deg,_#f8fbff_0%,_#edf4ff_100%)] pl-12 pr-4 text-[15px] text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100">
                             </div>
                         </div>
 

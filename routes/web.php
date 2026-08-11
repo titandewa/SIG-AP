@@ -65,7 +65,7 @@ Route::post('/fcm/test-notification', function () {
 |--------------------------------------------------------------------------
 */
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('login');
 });
 
 // Route untuk mengecek data user yang sedang login saat ini

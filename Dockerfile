@@ -1,24 +1,35 @@
-FROM serversideup/php:8.4-frankenphp
+FROM unit:1.34.1-php8.3
 
-USER root
+RUN apt update && apt install -y \
+    curl unzip git libicu-dev libzip-dev libpng-dev libjpeg-dev libfreetype6-dev libssl-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) pcntl opcache pdo pdo_mysql intl zip gd exif ftp bcmath \
+    && pecl install redis \
+    && docker-php-ext-enable redis
 
-# Copy Bun for building frontend assets or JS runtime support
-COPY --from=oven/bun:1.1 /usr/local/bin/bun /usr/local/bin/bun
+RUN echo "opcache.enable=1" > /usr/local/etc/php/conf.d/custom.ini \
+    && echo "opcache.jit=tracing" >> /usr/local/etc/php/conf.d/custom.ini \
+    && echo "opcache.jit_buffer_size=256M" >> /usr/local/etc/php/conf.d/custom.ini \
+    && echo "memory_limit=512M" > /usr/local/etc/php/conf.d/custom.ini \        
+    && echo "upload_max_filesize=64M" >> /usr/local/etc/php/conf.d/custom.ini \
+    && echo "post_max_size=64M" >> /usr/local/etc/php/conf.d/custom.ini
 
-# Install extensions (pcntl is REQUIRED for Laravel Octane worker handling)
-RUN install-php-extensions pdo_mysql bcmath intl zip opcache gd redis exif pcntl
+COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
 
-USER www-data
 WORKDIR /var/www/html
 
-# Copy application files into the container
-COPY --chown=www-data:www-data . .
+RUN mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Production Composer flags (--no-dev and --optimize-autoloader)
-RUN composer install --optimize-autoloader --ignore-platform-req=ext-pdo_duckdb
+RUN chown -R unit:unit /var/www/html/storage bootstrap/cache && chmod -R 775 /var/www/html/storage
 
-# Document the port Octane will listen on
-EXPOSE 8080
+COPY . .
 
-# Default command to start Octane in FrankenPHP worker mode
-CMD ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=8080"]
+RUN chown -R unit:unit storage bootstrap/cache && chmod -R 775 storage bootstrap/cache
+
+RUN composer install --prefer-dist --optimize-autoloader --no-interaction
+
+COPY unit.json /docker-entrypoint.d/unit.json
+
+EXPOSE 8000
+
+CMD ["unitd", "--no-daemon"]

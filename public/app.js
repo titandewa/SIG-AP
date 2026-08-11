@@ -5,9 +5,9 @@ if (!("Notification" in window)) {
 // Cek apakah izin sudah diberikan
 else if (Notification.permission === "granted") {
   // Jika sudah diizinkan, langsung tampilkan notifikasi
-  munculkanNotifikasi();
+  //munculkanNotifikasi();
 } 
-    munculkanNotifikasi();
+    //munculkanNotifikasi();
 
 // Fungsi untuk membuat dan menampilkan notifikasi
 function munculkanNotifikasi() {

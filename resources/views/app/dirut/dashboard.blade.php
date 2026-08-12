@@ -12,9 +12,9 @@
 
 <div class="flex flex-col h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] -m-3 sm:-m-5 lg:-m-8 overflow-hidden">
     <!-- Bar khusus toggle daftar dokumen (mobile only) -->
-    <div class="lg:hidden bg-indigo-950 border-b border-indigo-900 px-4 py-2.5 flex items-center justify-between shrink-0">
+    <div class="lg:hidden bg-[#021b41] border-b border-[#021b41] px-4 py-2.5 flex items-center justify-between shrink-0">
         <span class="text-indigo-200 text-xs font-semibold">Executive Dashboard</span>
-        <button onclick="togglePanel('list')" class="bg-indigo-900 hover:bg-indigo-800 px-3 py-1.5 rounded-lg text-xs text-indigo-200 flex items-center gap-1.5 transition">
+        <button onclick="togglePanel('list')" class="bg-[#021b41] hover:bg-[#03265c] px-3 py-1.5 rounded-lg text-xs text-indigo-200 flex items-center gap-1.5 transition">
             <i class="fa-solid fa-list"></i> Dokumen Siap TTD
         </button>
     </div>
@@ -36,14 +36,14 @@
     @endif
 
     <!-- Backdrop mobile (hanya untuk drawer list dokumen) -->
-    <div id="mobileBackdrop" onclick="closeAllPanels()" class="hidden fixed inset-0 bg-slate-900/50 z-20 lg:hidden"></div>
+    <div id="mobileBackdrop" onclick="closeAllPanels()" class="hidden fixed inset-0 bg-[#021b41]/50 z-20 lg:hidden"></div>
 
     <div class="flex flex-col lg:flex-row flex-1 min-h-0 relative">
 
         <!-- Sidebar Kiri: List Dokumen (drawer di HP) -->
         <aside id="docListSidebar"
-            class="hidden lg:flex lg:flex-col fixed lg:static inset-y-0 left-0 z-30 w-72 bg-slate-900 border-r border-slate-800 shrink-0 shadow-xl lg:shadow-none lg:h-full lg:overflow-hidden">
-            <div class="flex justify-between items-center p-4 border-b border-slate-800 lg:hidden">
+            class="hidden lg:flex lg:flex-col fixed lg:static inset-y-0 left-0 z-30 w-72 bg-[#021b41] border-r border-[#021b41] shrink-0 shadow-xl lg:shadow-none lg:h-full lg:overflow-hidden">
+            <div class="flex justify-between items-center p-4 border-b border-[#021b41] lg:hidden">
                 <span class="text-white font-bold text-sm">Dokumen Siap Disahkan</span>
                 <button onclick="closeAllPanels()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
@@ -54,7 +54,7 @@
                 @forelse($readyToSignDocuments as $doc)
                     <button onclick="selectDocument({{ $doc->id }})" id="listitem-{{ $doc->id }}"
                         class="doc-list-item w-full text-left p-3 rounded-xl border transition
-                        {{ $loop->first ? 'bg-indigo-600/20 border-indigo-500' : 'bg-slate-950/50 border-slate-800 hover:border-slate-700' }}">
+                        {{ $loop->first ? 'bg-[#021b41]/30 border-[#021b41]' : 'bg-[#021b41]/55 border-[#021b41] hover:border-[#03265c]' }}">
                         <p class="font-semibold text-white text-xs leading-snug line-clamp-2">{{ $doc->title }}</p>
                         <p class="text-[10px] text-slate-500 mt-1">No: {{ $doc->document_number }}</p>
                         <div class="mt-1.5 flex items-center gap-1.5 text-[10px] text-emerald-400 font-medium">
@@ -107,16 +107,16 @@
         </main>
 
         <!-- Kanan: Aksi Sahkan & TTD -- SELALU TAMPIL, di bawah preview pada HP -->
-        <aside id="actionPanel" class="flex flex-col bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 shrink-0 lg:w-80 p-4">
+        <aside id="actionPanel" class="flex flex-col bg-[#021b41] border-t lg:border-t-0 lg:border-l border-[#021b41] shrink-0 lg:w-80 p-4">
             @if($readyToSignDocuments->isEmpty())
-                <div class="text-center py-10 bg-slate-950/40 rounded-xl border border-slate-800">
+                <div class="text-center py-10 bg-[#021b41]/40 rounded-xl border border-[#021b41]">
                     <i class="fa-solid fa-file-circle-xmark text-3xl text-slate-600 mb-2 block"></i>
                     <p class="text-slate-400 text-xs">Belum ada dokumen yang siap ditandatangani saat ini.</p>
                 </div>
             @else
                 @foreach($readyToSignDocuments as $doc)
                     <div id="panel-{{ $doc->id }}" class="doc-panel {{ $loop->first ? '' : 'hidden' }}">
-                        <div class="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-3">
+                        <div class="p-4 bg-[#021b41]/60 border border-[#021b41] rounded-xl space-y-3">
                             <div>
                                 <p class="text-[11px] text-slate-400">No: {{ $doc->document_number }}</p>
                                 <div class="mt-2 flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
@@ -260,6 +260,7 @@
             item.classList.toggle('bg-indigo-600/20', itemId === id);
             item.classList.toggle('border-indigo-500', itemId === id);
             item.classList.toggle('bg-slate-950/50', itemId !== id);
+            item.classList.toggle('border-[#021b41]', itemId === id);
             item.classList.toggle('border-slate-800', itemId !== id);
         });
 

@@ -13,9 +13,9 @@
 
 <div class="flex flex-col lg:h-[calc(100vh-64px)] -m-3 sm:-m-5 lg:-m-8 lg:overflow-hidden">
     <!-- Bar khusus toggle daftar dokumen (mobile only) -->
-    <div class="lg:hidden bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center justify-between shrink-0">
+    <div class="lg:hidden bg-[#021b41] border-b border-[#021b41] px-4 py-2.5 flex items-center justify-between shrink-0">
         <span class="text-slate-300 text-xs font-semibold">Lembar Review SK</span>
-        <button onclick="togglePanel('list')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs text-slate-300 flex items-center gap-1.5 transition">
+        <button onclick="togglePanel('list')" class="bg-[#021b41] hover:bg-[#03265c] px-3 py-1.5 rounded-lg text-xs text-slate-300 flex items-center gap-1.5 transition">
             <i class="fa-solid fa-list"></i> Daftar Dokumen
         </button>
     </div>
@@ -34,14 +34,14 @@
     @endphp
 
     <!-- Backdrop mobile (hanya untuk drawer list dokumen) -->
-    <div id="mobileBackdrop" onclick="closeAllPanels()" class="hidden fixed inset-0 bg-slate-900/50 z-20 lg:hidden"></div>
+    <div id="mobileBackdrop" onclick="closeAllPanels()" class="hidden fixed inset-0 bg-[#021b41]/50 z-20 lg:hidden"></div>
 
     <div class="flex flex-col lg:flex-row flex-1 min-h-0 relative">
 
         <!-- Sidebar Kiri: List Dokumen (tetap drawer di HP) -->
         <aside id="docListSidebar"
-            class="hidden lg:flex lg:flex-col fixed lg:static inset-y-0 left-0 z-30 w-72 bg-slate-900 border-r border-slate-800 shrink-0 shadow-xl lg:shadow-none lg:h-full lg:overflow-hidden">
-            <div class="flex justify-between items-center p-4 border-b border-slate-800 lg:hidden">
+            class="hidden lg:flex lg:flex-col fixed lg:static inset-y-0 left-0 z-30 w-72 bg-[#021b41] border-r border-[#021b41] shrink-0 shadow-xl lg:shadow-none lg:h-full lg:overflow-hidden">
+            <div class="flex justify-between items-center p-4 border-b border-[#021b41] lg:hidden">
                 <span class="text-white font-bold text-sm">Daftar Dokumen</span>
                 <button onclick="closeAllPanels()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
@@ -51,7 +51,7 @@
                     <button onclick="selectDocument({{ $app->document_id }})" id="listitem-{{ $app->document_id }}"
                         class="doc-list-item w-full text-left p-3 rounded-xl border transition
                         {{ $isDecided ? 'opacity-60' : '' }}
-                        {{ $loop->first ? 'bg-indigo-600/20 border-indigo-500' : 'bg-slate-950/50 border-slate-800 hover:border-slate-700' }}">
+                        {{ $loop->first ? 'bg-[#4DA8FF]/10 border-[#4DA8FF]' : 'bg-[#021b41]/55 border-[#021b41] hover:border-[#4DA8FF]/60 hover:bg-[#4DA8FF]/5' }}">
                         <div class="flex justify-between items-start gap-2">
                             <p class="font-semibold text-white text-xs leading-snug line-clamp-2">{{ $app->document->title }}</p>
                             <span class="shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded uppercase
@@ -117,11 +117,11 @@
 
         <!-- Kanan: Review & Chat -- SELALU TAMPIL, di bawah preview pada HP, jadi sidebar di desktop -->
         <aside id="reviewPanel"
-            class="flex flex-col bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 shrink-0 lg:w-96 lg:overflow-y-auto p-4">
+            class="flex flex-col bg-[#FFFFFF] border-t lg:border-t-0 lg:border-l border-slate-200 shrink-0 lg:w-96 lg:overflow-y-auto p-4">
 
             @if($approvals->isEmpty())
-                <div class="text-center py-10 bg-slate-950/40 rounded-xl border border-slate-800">
-                    <i class="fa-solid fa-file-circle-check text-3xl text-slate-600 mb-2 block"></i>
+                <div class="text-center py-10 bg-slate-50 rounded-xl border border-slate-200">
+                    <i class="fa-solid fa-file-circle-check text-3xl text-slate-300 mb-2 block"></i>
                     <p class="text-slate-400 text-xs">Belum ada dokumen yang perlu ditinjau saat ini.</p>
                 </div>
             @else
@@ -135,22 +135,17 @@
                     <div id="panel-{{ $app->document_id }}" class="doc-panel space-y-3 {{ $loop->first ? '' : 'hidden' }}">
 
                         <!-- Status semua Validator yang ditugaskan untuk dokumen ini -->
-                        <div class="bg-slate-800/60 rounded-lg p-3 space-y-2">
-                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Status Validator</p>
+                        <div class="bg-slate-50 rounded-lg p-3 space-y-2 border border-slate-200">
+                            <p class="text-[10px] font-bold text-[#4DA8FF] uppercase tracking-wide">Status Validator</p>
                             @foreach($app->document->approvals as $reviewer)
                                 <div class="flex items-center justify-between gap-2">
-                                    <span class="text-xs text-slate-200 truncate">
-                                        {{ $reviewer->user->name ?? 'Validator' }}
+                                    <span class="text-sm font-bold text-slate-800 truncate">
+                                        {{ Str::of($reviewer->user->name ?? 'Validator')->before(' ') }}
                                         @if($reviewer->user_id === auth()->id())
-                                            <span class="text-slate-500">(Kamu)</span>
+                                            <span class="text-slate-400 font-normal text-xs">(Kamu)</span>
                                         @endif
                                     </span>
-                                    <span class="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase
-                                        {{ $reviewer->status === 'TERIMA' ? 'bg-emerald-500/20 text-emerald-400' : '' }}
-                                        {{ $reviewer->status === 'TOLAK' ? 'bg-rose-500/20 text-rose-400' : '' }}
-                                        {{ $reviewer->status === 'PENDING' ? 'bg-amber-500/20 text-amber-400' : '' }}
-                                        {{ $reviewer->status === 'DIBATALKAN' ? 'bg-slate-600/40 text-slate-400' : '' }}
-                                        {{ $reviewer->status === 'MENUNGGU' ? 'bg-slate-700 text-slate-300' : '' }}">
+                                    <span class="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase text-[#4DA8FF] bg-[#4DA8FF]/10">
                                         {{ $reviewer->status === 'MENUNGGU' ? 'Belum Menjawab' : $reviewer->status }}
                                     </span>
                                 </div>
@@ -158,13 +153,13 @@
                         </div>
 
                         @if($app->document->comments->count() > 0)
-                            <div class="bg-slate-800/60 rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
+                            <div class="bg-slate-50 rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto border border-slate-200">
                                 @foreach($app->document->comments as $comment)
                                     @php $isMine = $comment->user_id === auth()->id(); @endphp
                                     <div class="flex {{ $isMine ? 'justify-end' : 'justify-start' }}">
-                                        <div class="max-w-[80%] {{ $isMine ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-100' }} rounded-lg px-3 py-2">
+                                        <div class="max-w-[80%] {{ $isMine ? 'bg-[#4DA8FF] text-white' : 'bg-white border border-slate-200 text-slate-700' }} rounded-lg px-3 py-2">
                                             <p class="text-[11px] leading-snug">{{ $comment->comment }}</p>
-                                            <p class="text-[9px] mt-1 {{ $isMine ? 'text-indigo-200' : 'text-slate-400' }}">
+                                            <p class="text-[9px] mt-1 {{ $isMine ? 'text-white/80' : 'text-slate-400' }}">
                                                 {{ $isMine ? 'Kamu' : ($comment->user->name ?? 'User') }} • {{ $comment->created_at->diffForHumans() }}
                                             </p>
                                         </div>
@@ -176,16 +171,16 @@
                         <form action="{{ route('document.comment', $app->document_id) }}" method="POST" class="flex items-center gap-2">
                             @csrf
                             <input type="text" name="comment" placeholder="Tulis pesan..." required autocomplete="off"
-                                class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
-                            <button type="submit" class="shrink-0 w-9 h-9 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition">
+                                class="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4DA8FF] transition">
+                            <button type="submit" class="shrink-0 w-9 h-9 rounded-lg bg-[#4DA8FF] hover:brightness-110 text-white flex items-center justify-center transition">
                                 <i class="fa-solid fa-paper-plane text-xs"></i>
                             </button>
                         </form>
 
-                        <form action="{{ route('petinggi.review', $app->document_id) }}" method="POST" class="space-y-3 pt-2 border-t border-slate-800">
+                        <form action="{{ route('petinggi.review', $app->document_id) }}" method="POST" class="space-y-3 pt-2 border-t border-slate-200">
                             @csrf
                             @if($app->status === 'MENUNGGU')
-                                <div class="grid grid-cols-3 gap-2 pt-1">
+                                <div class="grid grid-cols-3 lg:grid-cols-1 gap-2 pt-1">
                                     <button type="button" onclick="askConfirm(this.closest('form'), 'TERIMA', 'MENYETUJUI dokumen ini')"
                                         class="px-2 sm:px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
                                         <i class="fa-solid fa-check hidden sm:inline"></i> <span>Setujui</span>
@@ -193,13 +188,13 @@
                                     <button type="button" {{ !$hasCommented ? 'disabled' : '' }}
                                         onclick="askConfirm(this.closest('form'), 'PENDING', 'meminta REVISI (Pastikan poin revisi telah dicantumkan pada kolom komentar sebelum melanjutkan)')"
                                         class="px-2 sm:px-3 py-2 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1
-                                        {{ $hasCommented ? 'bg-amber-600 hover:bg-amber-500' : 'bg-slate-700 opacity-50 cursor-not-allowed' }}">
+                                        {{ $hasCommented ? 'bg-amber-600 hover:bg-amber-500' : 'bg-slate-300 opacity-50 cursor-not-allowed' }}">
                                         <i class="fa-solid fa-clock-rotate-left hidden sm:inline"></i> <span>Revisi</span>
                                     </button>
                                     <button type="button" {{ !$hasCommented ? 'disabled' : '' }}
                                         onclick="askConfirm(this.closest('form'), 'TOLAK', 'MENOLAK dokumen ini')"
                                         class="px-2 sm:px-3 py-2 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1
-                                        {{ $hasCommented ? 'bg-rose-600 hover:bg-rose-500' : 'bg-slate-700 opacity-50 cursor-not-allowed' }}">
+                                        {{ $hasCommented ? 'bg-rose-600 hover:bg-rose-500' : 'bg-slate-300 opacity-50 cursor-not-allowed' }}">
                                         <i class="fa-solid fa-xmark hidden sm:inline"></i> <span>Tolak</span>
                                     </button>
                                 </div>
@@ -365,10 +360,10 @@
 
         document.querySelectorAll('.doc-list-item').forEach(item => {
             const itemId = parseInt(item.id.replace('listitem-', ''));
-            item.classList.toggle('bg-indigo-600/20', itemId === id);
-            item.classList.toggle('border-indigo-500', itemId === id);
-            item.classList.toggle('bg-slate-950/50', itemId !== id);
-            item.classList.toggle('border-slate-800', itemId !== id);
+            item.classList.toggle('bg-[#4DA8FF]/10', itemId === id);
+            item.classList.toggle('border-[#4DA8FF]', itemId === id);
+            item.classList.toggle('bg-[#021b41]/55', itemId !== id);
+            item.classList.toggle('border-[#021b41]', itemId !== id);
         });
 
         closeAllPanels();

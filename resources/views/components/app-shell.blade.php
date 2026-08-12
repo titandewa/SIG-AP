@@ -18,11 +18,10 @@
 </head>
 <body class="overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.95),_rgba(241,245,249,0.95))] min-h-screen text-slate-800">
     <div class="min-h-screen flex flex-col">
-        <nav class="{{ $roleColor === 'slate' ? 'bg-slate-900 text-white' : 'bg-indigo-900 text-white' }} px-3 sm:px-6 py-3 flex items-center justify-between gap-2 shadow-lg shrink-0 sticky top-0 z-30 border-b border-white/10 backdrop-blur">
+        <nav class="bg-[#021b41] text-white px-3 sm:px-6 py-3 flex items-center justify-between gap-2 shadow-lg shrink-0 sticky top-0 z-30 border-b border-white/10 backdrop-blur">
             <div class="flex items-center gap-2 sm:gap-4 min-w-0">
-                <a class="bg-white/10 hover:bg-white/20 px-3 py-2 rounded-2xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition whitespace-nowrap shrink-0">
-                    <i class="fa-solid fa-shield-halved"></i>
-                    <span>SIGAP_V1</span>
+                <a class="flex items-center shrink-0">
+                    <img src="{{ asset('images/logo-banner.png') }}" alt="SIGAP_V1" class="h-10 sm:h-12 w-auto rounded-xl object-contain">
                 </a>
 
                 <!-- Tab Navigasi -->
@@ -34,7 +33,7 @@
                         <a href="{{ $item['url'] ?? '#' }}"
                             class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition
                                 {{ $isActive
-                                    ? 'bg-white text-indigo-900 shadow-sm'
+                                    ? 'bg-white text-[#021b41] shadow-sm'
                                     : 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white' }}">
                             <i class="{{ $item['icon'] ?? 'fa-solid fa-circle' }}"></i>
                             <span>{{ $item['label'] }}</span>
@@ -55,7 +54,7 @@
                             <span class="hidden md:inline">Notifikasi</span>
                         </span>
                     @else
-                        <button type="button" id="notifDropdownButton" class="{{ $roleColor === 'slate' ? 'bg-slate-800 hover:bg-slate-700' : 'bg-indigo-800 hover:bg-indigo-700' }} px-2.5 sm:px-3 py-2 rounded-2xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition shadow-sm border border-white/10">
+                        <button type="button" id="notifDropdownButton" class="bg-[#021b41] hover:bg-[#03265c] px-2.5 sm:px-3 py-2 rounded-2xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition shadow-sm border border-white/10">
                             <div class="relative">
                                 <i class="fa-solid fa-bell"></i>
                                 @if($notifications->isNotEmpty())
@@ -110,14 +109,14 @@
                 @endauth
 
                 @auth
-                <div class="w-9 h-9 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-sm shrink-0 border border-white/10">
+                <div class="w-9 h-9 rounded-full bg-[#021b41] flex items-center justify-center font-bold text-sm shrink-0 border border-white/10">
                     {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 1)) }}
                 </div>
                 @endauth
 
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit" class="{{ $roleColor === 'slate' ? 'bg-slate-800 hover:bg-slate-700' : 'bg-indigo-800 hover:bg-indigo-700' }} p-2.5 rounded-2xl text-sm font-semibold transition shadow-sm border border-white/10">
+                    <button type="submit" class="bg-[#021b41] hover:bg-[#03265c] p-2.5 rounded-2xl text-sm font-semibold transition shadow-sm border border-white/10">
                         <i class="fa-solid fa-right-from-bracket"></i>
                     </button>
                 </form>
@@ -125,7 +124,7 @@
         </nav>
 
         <!-- Tab Navigasi versi mobile -->
-        <div class="sm:hidden flex items-center gap-1 px-3 py-2 {{ $roleColor === 'slate' ? 'bg-slate-800' : 'bg-indigo-800' }} overflow-x-auto">
+        <div class="sm:hidden flex items-center gap-1 px-3 py-2 bg-[#021b41] overflow-x-auto">
             @foreach($sidebarItems as $item)
                 @php
                     $isActive = request()->url() === url($item['url'] ?? '#');
@@ -133,7 +132,7 @@
                 <a href="{{ $item['url'] ?? '#' }}"
                     class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap
                         {{ $isActive
-                            ? 'bg-white text-indigo-900'
+                            ? 'bg-white text-[#021b41]'
                             : 'bg-white/10 text-white/80 hover:bg-white/20' }}">
                     <i class="{{ $item['icon'] ?? 'fa-solid fa-circle' }}"></i>
                     <span>{{ $item['label'] }}</span>
@@ -180,4 +179,4 @@
         });
     </script>
 </body>
-</html> 
+</html>

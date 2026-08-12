@@ -110,7 +110,7 @@
                     <p class="flex flex-wrap items-center justify-center gap-2 text-center text-sm text-slate-500">
                         <i class="fa-solid fa-headset text-slate-400"></i>
                         Butuh bantuan?
-                        <a href="mailto:admin@sigapp.local" class="font-semibold text-[#0D1B3D] transition hover:text-[#4DA8FF]">Hubungi Admin Sistem</a>
+                        <a href="https://wa.me/6281334253334" target="_blank" class="font-semibold text-[#0D1B3D] transition hover:text-[#4DA8FF]">Hubungi Admin Sistem</a>
                     </p>
                 </div>
             </section>

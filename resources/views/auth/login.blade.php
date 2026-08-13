@@ -103,7 +103,7 @@
 
                     <div class="my-6 flex items-center gap-4 text-slate-300 sm:my-7">
                         <span class="h-px flex-1 bg-slate-200"></span>
-                        <span class="text-sm text-slate-400">Akun hanya dibuat oleh admin sistem.</span>
+                        <span class="text-sm text-slate-400">Akun hanya dibuat oleh team IT.</span>
                         <span class="h-px flex-1 bg-slate-200"></span>
                     </div>
 

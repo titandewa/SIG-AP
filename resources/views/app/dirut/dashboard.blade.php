@@ -38,7 +38,7 @@
     <!-- Backdrop mobile (hanya untuk drawer list dokumen) -->
     <div id="mobileBackdrop" onclick="closeAllPanels()" class="hidden fixed inset-0 bg-[#021b41]/50 z-20 lg:hidden"></div>
 
-    <div class="flex flex-col lg:flex-row flex-1 min-h-0 relative">
+    <div class="flex flex-col lg:flex-row flex-1 min-h-0 relative overflow-y-auto lg:overflow-hidden">
 
         <!-- Sidebar Kiri: List Dokumen (drawer di HP) -->
         <aside id="docListSidebar"

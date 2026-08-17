@@ -19,6 +19,7 @@
             }
         }
     </script>
+    <link rel="icon" href="{{ asset('favicon.png') }}" type="image/png">
 </head>
 <body class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.96),_rgba(241,245,249,0.92)_42%,_rgba(226,232,240,0.9)_100%)] font-sans text-slate-800">
     <div class="min-h-screen px-3 py-3 sm:px-5 sm:py-5 lg:px-4 lg:py-4">

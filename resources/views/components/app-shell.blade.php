@@ -12,9 +12,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#000000">
     <title>{{ $title }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" href="{{ asset('favicon.png') }}" type="image/png">
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
 </head>
 <body class="overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.95),_rgba(241,245,249,0.95))] min-h-screen text-slate-800">
     <div class="min-h-screen flex flex-col">

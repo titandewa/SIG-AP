@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#000000">
     <title>SIGAPP - Masuk</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -20,6 +21,7 @@
         }
     </script>
     <link rel="icon" href="{{ asset('favicon.png') }}" type="image/png">
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
 </head>
 <body class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.96),_rgba(241,245,249,0.92)_42%,_rgba(226,232,240,0.9)_100%)] font-sans text-slate-800">
     <div class="min-h-screen px-3 py-3 sm:px-5 sm:py-5 lg:px-4 lg:py-4">

@@ -121,6 +121,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/app/aspri/riwayat', [DocumentController::class, 'riwayatAspri'])->name('aspri.riwayat');
         Route::get('/app/aspri/dokumen/{id}', [DocumentController::class, 'detailAspri'])->name('aspri.detail');
         Route::get('/app/aspri/dokumen/{id}/versi', [DocumentController::class, 'versionHistory'])->name('aspri.version-history');
+        Route::delete('/app/aspri/dokumen/{id}', [DocumentController::class, 'destroyAspri'])->name('aspri.destroy');
     });
 
     // Route khusus Petinggi

@@ -180,7 +180,7 @@
                         <form action="{{ route('petinggi.review', $app->document_id) }}" method="POST" class="space-y-3 pt-2 border-t border-slate-200">
                             @csrf
                             @if($app->status === 'MENUNGGU')
-                                <div class="grid grid-cols-3 lg:grid-cols-1 gap-2 pt-1">
+                                <div class="grid grid-cols-2 lg:grid-cols-1 gap-2 pt-1">
                                     <button type="button" onclick="askConfirm(this.closest('form'), 'TERIMA', 'MENYETUJUI dokumen ini')"
                                         class="px-2 sm:px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
                                         <i class="fa-solid fa-check hidden sm:inline"></i> <span>Setujui</span>
@@ -191,12 +191,14 @@
                                         {{ $hasCommented ? 'bg-amber-600 hover:bg-amber-500' : 'bg-slate-300 opacity-50 cursor-not-allowed' }}">
                                         <i class="fa-solid fa-clock-rotate-left hidden sm:inline"></i> <span>Revisi</span>
                                     </button>
+                                    {{--
                                     <button type="button" {{ !$hasCommented ? 'disabled' : '' }}
                                         onclick="askConfirm(this.closest('form'), 'TOLAK', 'MENOLAK dokumen ini')"
                                         class="px-2 sm:px-3 py-2 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1
                                         {{ $hasCommented ? 'bg-rose-600 hover:bg-rose-500' : 'bg-slate-300 opacity-50 cursor-not-allowed' }}">
                                         <i class="fa-solid fa-xmark hidden sm:inline"></i> <span>Tolak</span>
                                     </button>
+                                    --}}
                                 </div>
                                 @if(!$hasCommented)
                                     <p class="text-[10px] text-amber-500 text-center mt-1">

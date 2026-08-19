@@ -39,7 +39,9 @@
             @else
                 <div class="mt-6 space-y-3">
                     @foreach($notifications as $notification)
-                        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-indigo-200 hover:shadow-md">
+                        <a href="{{ $notification->data['url'] ?? '#' }}"
+                           onclick="markNotifRead(event, {{ $notification->id }}, '{{ $notification->data['url'] ?? '#' }}')"
+                           class="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-indigo-200 hover:shadow-md cursor-pointer">
                             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div class="min-w-0">
                                     <div class="flex flex-wrap items-center gap-2">
@@ -56,7 +58,7 @@
                                     <div class="mt-1">{{ $notification->created_at->translatedFormat('H:i') }}</div>
                                 </div>
                             </div>
-                        </div>
+                        </a>
                     @endforeach
                 </div>
 

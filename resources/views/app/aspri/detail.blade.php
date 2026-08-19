@@ -71,6 +71,17 @@
                     class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-4 py-2.5 rounded-lg transition flex items-center gap-1.5">
                     <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Versi
                 </a>
+
+                @if($document->status !== 'DISETUJUI')
+                    <form action="{{ route('aspri.destroy', $document->id) }}" method="POST"
+                        onsubmit="return confirm('Yakin hapus pengajuan ini? Tindakan tidak bisa dibatalkan.');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-semibold px-4 py-2.5 rounded-lg transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-trash"></i> Hapus Pengajuan
+                        </button>
+                    </form>
+                @endif
             </div>
 
             <!-- Form Upload Revisi & Ganti Judul: hanya muncul kalau status PENDING (diminta revisi) -->

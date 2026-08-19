@@ -81,6 +81,27 @@ class DocumentController extends Controller
         return view('app.aspri.detail', compact('document'));
     }
 
+    public function destroyAspri($id)
+    {
+        $document = Document::where('user_id', Auth::id())->findOrFail($id);
+
+        if ($document->status === 'DISETUJUI') {
+            return redirect()->back()->with('error', 'Dokumen yang sudah disetujui tidak bisa dihapus.');
+        }
+
+        DB::transaction(function () use ($document) {
+            foreach ($document->versions as $version) {
+                Storage::disk('public')->delete($version->file_path);
+            }
+            $document->comments()->delete();
+            $document->approvals()->delete();
+            $document->versions()->delete();
+            $document->delete();
+        });
+
+        return redirect()->route('app.aspri.dashboard')->with('success', 'Pengajuan SK berhasil dihapus.');
+    }
+
     public function listAktifAspri()
     {
         $documents = Document::with(['latestVersion', 'approvals.user'])

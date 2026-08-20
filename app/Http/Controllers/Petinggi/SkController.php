@@ -277,4 +277,43 @@ class SkController extends Controller
 
         return redirect()->back()->with('success', 'Tanda tangan berhasil disimpan!');
     }
+
+    public function signWithoutSignature(Request $request, $id)
+    {
+        $userId = Auth::id() ?? $request->user_id;
+
+        $approval = DocumentApproval::where('document_id', $id)
+            ->where('user_id', $userId)
+            ->firstOrFail();
+
+        if ($approval->document->status !== 'DITINJAU') {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Dokumen ini sudah tidak dalam status ditinjau, keputusan tidak disimpan.'], 422);
+            }
+            return redirect()->back()->with('error', 'Dokumen ini sudah tidak dalam status ditinjau, keputusan tidak disimpan.');
+        }
+
+        if ($approval->status !== 'MENUNGGU') {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.'], 422);
+            }
+            return redirect()->back()->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
+        }
+
+        $approval->update(['status' => 'TERIMA']);
+
+        $doc = Document::with(['approvals', 'user'])->findOrFail($id);
+
+        $this->finalizeTerima($doc);
+
+        // Jika request dari Fetch/AJAX, kembalikan JSON agar tidak redirect loop
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true, 
+                'message' => 'Dokumen disetujui tanpa tanda tangan. Admin akan menempelkan TTD Anda nanti.'
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Dokumen disetujui tanpa tanda tangan. Admin akan menempelkan TTD Anda nanti.');
+    }
 }

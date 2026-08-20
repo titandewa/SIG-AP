@@ -130,15 +130,15 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Route khusus Petinggi
-
     Route::middleware(['role:petinggi'])->group(function () {
         Route::get('/app/petinggi/dashboard', [PetinggiSkController::class, 'index'])->name('app.petinggi.dashboard');
         Route::post('/app/petinggi/review/{id}', [PetinggiSkController::class, 'review'])->name('petinggi.review');
+        Route::post('/app/petinggi/sign-without-signature/{id}', [PetinggiSkController::class, 'signWithoutSignature'])->name('petinggi.sign-without-signature');
         Route::get('/app/petinggi/riwayat', [PetinggiSkController::class, 'riwayat'])->name('petinggi.riwayat');
         Route::get('/app/petinggi/ttd/{id}', [PetinggiSkController::class, 'showTtdEditor'])->name('petinggi.ttd.editor');
         Route::post('/app/petinggi/ttd/{id}', [PetinggiSkController::class, 'saveSignaturePlacement'])->name('petinggi.ttd.save');
         Route::get('/app/petinggi/signature', [PetinggiSkController::class, 'showSignaturePage'])->name('petinggi.signature.page');
-Route::post('/app/petinggi/signature', [PetinggiSkController::class, 'saveSignature'])->name('petinggi.signature.save');
+        Route::post('/app/petinggi/signature', [PetinggiSkController::class, 'saveSignature'])->name('petinggi.signature.save');
     });
 
     // Route khusus Dirut

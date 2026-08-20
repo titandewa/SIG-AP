@@ -153,11 +153,11 @@ class DatabaseSeeder extends Seeder
         ]);
 
         User::create([
-            'name' => 'Ahmad Dendy Relly M (PJ Brand Dadar Beredar & Lamak Rasa)',
-            'email' => 'dendy@sigap.com',
+            'name' => 'Ahmad Dendy Relly M (PJ Brand Dadar Beredar & Lamak Rasa HOLDING)',
+            'email' => 'ahmaddendy07@gmail.com',
             'phone' => '6281515117001',
             'role' => 'petinggi',
-            'password' => Hash::make('password'),
+            'password' => Hash::make('Sumberinginkidul11'),
         ]);
 
         User::create([
@@ -313,11 +313,11 @@ class DatabaseSeeder extends Seeder
         ]);
 
         User::create([
-            'name' => 'Rizky Tristanti (Manager HRD)',
-            'email' => 'rizkytristanti@sigap.com',
+            'name' => 'Rizky Trisanti (Coordinator HRD)',
+            'email' => 'trisantirizky@gmail.com',
             'phone' => '6285604102170',
             'role' => 'petinggi',
-            'password' => Hash::make('password'),
+            'password' => Hash::make('Malang131415'),
         ]);
 
         User::create([

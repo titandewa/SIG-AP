@@ -3,6 +3,9 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\Aspri\SkController as AspriSkController;
+use App\Http\Controllers\Petinggi\SkController as PetinggiSkController;
+use App\Http\Controllers\Dirut\SkController as DirutSkController;
 use App\Http\Controllers\PdfSignerController;
 use App\Http\Controllers\NotificationHistoryController;
 
@@ -114,32 +117,39 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/notifications/clear', [NotificationHistoryController::class, 'clearAll'])->name('notifications.clear');
     // Route khusus Aspri
     Route::middleware(['role:aspri'])->group(function () {
-        Route::post('/app/aspri/revisi/{id}', [DocumentController::class, 'uploadRevision'])->name('aspri.revisi');
-        Route::post('/app/aspri/store', [DocumentController::class, 'store'])->name('aspri.store');
+        Route::post('/app/aspri/revisi/{id}', [AspriSkController::class, 'uploadRevision'])->name('aspri.revisi');
+        Route::post('/app/aspri/store', [AspriSkController::class, 'store'])->name('aspri.store');
         Route::post('/app/aspri/reminder/{id}', [DocumentController::class, 'sendReminder'])->name('aspri.reminder');
-        Route::get('/app/aspri/dashboard', [DocumentController::class, 'indexAspri'])->name('app.aspri.dashboard');
-        Route::get('/app/aspri/riwayat', [DocumentController::class, 'riwayatAspri'])->name('aspri.riwayat');
-        Route::get('/app/aspri/dokumen/{id}', [DocumentController::class, 'detailAspri'])->name('aspri.detail');
-        Route::get('/app/aspri/dokumen/{id}/versi', [DocumentController::class, 'versionHistory'])->name('aspri.version-history');
-        Route::delete('/app/aspri/dokumen/{id}', [DocumentController::class, 'destroyAspri'])->name('aspri.destroy');
+        Route::get('/app/aspri/dashboard', [AspriSkController::class, 'index'])->name('app.aspri.dashboard');
+        Route::get('/app/aspri/riwayat', [AspriSkController::class, 'riwayat'])->name('aspri.riwayat');
+        Route::get('/app/aspri/dokumen/{id}', [AspriSkController::class, 'detail'])->name('aspri.detail');
+        Route::get('/app/aspri/dokumen/{id}/versi', [AspriSkController::class, 'versionHistory'])->name('aspri.version-history');
+        Route::delete('/app/aspri/dokumen/{id}', [AspriSkController::class, 'destroy'])->name('aspri.destroy');
+        Route::get('/app/aspri/ttd/{id}', [AspriSkController::class, 'showTtdEditor'])->name('aspri.ttd.editor');
+        Route::post('/app/aspri/ttd/{id}', [AspriSkController::class, 'saveTtd'])->name('aspri.ttd.save');
     });
 
     // Route khusus Petinggi
 
     Route::middleware(['role:petinggi'])->group(function () {
-        Route::get('/app/petinggi/dashboard', [DocumentController::class, 'indexPetinggi'])->name('app.petinggi.dashboard');
-        Route::post('/app/petinggi/review/{id}', [DocumentController::class, 'reviewPetinggi'])->name('petinggi.review');
-        Route::get('/app/petinggi/riwayat', [DocumentController::class, 'riwayatPetinggi'])->name('petinggi.riwayat');
+        Route::get('/app/petinggi/dashboard', [PetinggiSkController::class, 'index'])->name('app.petinggi.dashboard');
+        Route::post('/app/petinggi/review/{id}', [PetinggiSkController::class, 'review'])->name('petinggi.review');
+        Route::get('/app/petinggi/riwayat', [PetinggiSkController::class, 'riwayat'])->name('petinggi.riwayat');
+        Route::get('/app/petinggi/ttd/{id}', [PetinggiSkController::class, 'showTtdEditor'])->name('petinggi.ttd.editor');
+        Route::post('/app/petinggi/ttd/{id}', [PetinggiSkController::class, 'saveSignaturePlacement'])->name('petinggi.ttd.save');
+        Route::get('/app/petinggi/signature', [PetinggiSkController::class, 'showSignaturePage'])->name('petinggi.signature.page');
+Route::post('/app/petinggi/signature', [PetinggiSkController::class, 'saveSignature'])->name('petinggi.signature.save');
     });
 
     // Route khusus Dirut
     Route::middleware(['role:dirut'])->group(function () {
-        Route::get('/app/dirut/dashboard', [DocumentController::class, 'indexDirut'])->name('app.dirut.dashboard');
-        Route::post('/app/dirut/sign/{id}', [DocumentController::class, 'signDirut'])->name('dirut.sign');
-        Route::get('/app/dirut/signature', [DocumentController::class, 'showSignaturePage'])->name('dirut.signature.page');
-        Route::post('/app/dirut/signature', [DocumentController::class, 'saveSignature'])->name('dirut.signature.save');
-        Route::get('/app/dirut/ttd/{id}', [DocumentController::class, 'showTtdEditor'])->name('dirut.ttd.editor');
-        Route::get('/app/dirut/riwayat', [DocumentController::class, 'riwayatDirut'])->name('dirut.riwayat');
+        Route::get('/app/dirut/dashboard', [DirutSkController::class, 'index'])->name('app.dirut.dashboard');
+        Route::post('/app/dirut/sign/{id}', [DirutSkController::class, 'sign'])->name('dirut.sign');
+        Route::post('/app/dirut/sign-without-signature/{id}', [DirutSkController::class, 'signWithoutSignature'])->name('dirut.sign-without-signature'); // ← baris baru
+        Route::get('/app/dirut/signature', [DirutSkController::class, 'showSignaturePage'])->name('dirut.signature.page');
+        Route::post('/app/dirut/signature', [DirutSkController::class, 'saveSignature'])->name('dirut.signature.save');
+        Route::get('/app/dirut/ttd/{id}', [DirutSkController::class, 'showTtdEditor'])->name('dirut.ttd.editor');
+        Route::get('/app/dirut/riwayat', [DirutSkController::class, 'riwayat'])->name('dirut.riwayat');
     });
 
 });

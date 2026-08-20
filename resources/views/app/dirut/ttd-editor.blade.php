@@ -91,6 +91,9 @@
                     <a href="{{ route('app.dirut.dashboard') }}" class="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-semibold rounded-lg transition">
                         Batalkan
                     </a>
+                    <button id="submitWithoutSignBtn" onclick="prosesSahkanTanpaTtd()" class="px-4 sm:px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-lg transition shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-clock"></i> <span class="hidden sm:inline">Sahkan Tanpa TTD</span><span class="inline sm:hidden">Tanpa TTD</span>
+                    </button>
                     <button id="submitBtn" onclick="prosesTandaTangan()" class="px-4 sm:px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition shadow-md flex items-center gap-2">
                         <i class="fa-solid fa-stamp"></i> <span class="hidden sm:inline">Sahkan Dokumen</span><span class="inline sm:hidden">Sahkan</span>
                     </button>
@@ -124,6 +127,15 @@
                     <i class="fa-solid fa-circle-info mr-1"></i>
                     Klik kanan (atau tahan sebentar di HP) pada tanda tangan di dokumen untuk menghapus, atau tekan tombol silang merah. Tarik bulatan di tepi kotak untuk mengubah ukuran.
                 </p>
+
+                @if(count($document->signaturePlacements) > 0)
+                    <div class="mt-5 pt-4 border-t border-slate-200">
+                        <p class="text-xs font-semibold text-emerald-600 mb-2">
+                            <i class="fa-solid fa-circle-check mr-1"></i> TTD Validator (sudah ditempel)
+                        </p>
+                        <p class="text-[11px] text-slate-400">Kotak bergaris hijau di dokumen adalah tanda tangan dari validator, akan otomatis ikut ditempel saat Anda menyahkan dokumen.</p>
+                    </div>
+                @endif
             </aside>
         </div>
     </div>
@@ -138,6 +150,16 @@
 
         const pdfUrl = "{{ asset('storage/' . $document->latestVersion->file_path) }}";
         const signatureImageSrc = "{{ asset('storage/' . auth()->user()->signature_path) }}";
+        const validatorPlacements = {!! json_encode($document->signaturePlacements->map(function ($p) {
+            return [
+                'page' => $p->page_number,
+                'x' => $p->x,
+                'y' => $p->y,
+                'width' => $p->width,
+                'height' => $p->height,
+                'signature_path' => asset('storage/' . $p->signature_path),
+            ];
+        })) !!};
 
         let originalPdfBytes = null;
         let pdfDocInstance = null;
@@ -153,6 +175,7 @@
         let thumbObserver = null;
         let zoomLevel = 1;
         let currentRenderTask = null; // buat cancel render yang lagi jalan biar nggak bentrok di canvas yang sama
+        let currentRawViewport = null; // dipakai buat konversi koordinat TTD validator ke posisi canvas
 
         async function loadPdf() {
             if (!window.pdfjsLib) {
@@ -328,8 +351,10 @@
                 }
             }
 
+            currentRawViewport = rawViewport;
             updateNavButtons();
             renderVisibleSignatures();
+            renderValidatorPlacements();
             highlightActiveThumb();
         }
 
@@ -493,6 +518,48 @@
             });
         }
 
+        // Menampilkan TTD dari validator (read-only, gak bisa digeser/dihapus dirut)
+        // sebagai overlay di atas canvas, biar dirut bisa lihat siapa saja yang
+        // sudah TTD sebelum dia ikut menyahkan dokumen.
+        function renderValidatorPlacements() {
+            document.querySelectorAll('.validator-signature-overlay').forEach(el => el.remove());
+
+            if (!currentRawViewport) return;
+
+            const canvas = document.getElementById('pdfCanvas');
+            const container = document.getElementById('pdfContainer');
+            const scaleX = canvas.clientWidth / currentRawViewport.width;
+            const scaleY = canvas.clientHeight / currentRawViewport.height;
+
+            validatorPlacements
+                .filter(vp => vp.page === currentPage)
+                .forEach(vp => {
+                    const visualWidth = vp.width * scaleX;
+                    const visualHeight = vp.height * scaleY;
+                    const visualX = vp.x * scaleX;
+                    const visualY = (currentRawViewport.height - vp.y - vp.height) * scaleY;
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'validator-signature-overlay absolute border-2 border-dashed border-emerald-500 bg-white/40 pointer-events-none';
+                    wrapper.style.width = visualWidth + 'px';
+                    wrapper.style.height = visualHeight + 'px';
+                    wrapper.style.left = visualX + 'px';
+                    wrapper.style.top = visualY + 'px';
+
+                    const img = document.createElement('img');
+                    img.src = vp.signature_path;
+                    img.className = 'w-full h-full object-contain';
+                    wrapper.appendChild(img);
+
+                    const label = document.createElement('span');
+                    label.className = 'absolute -top-5 left-0 text-[9px] font-bold text-emerald-600 bg-white px-1 rounded';
+                    label.textContent = 'TTD Validator';
+                    wrapper.appendChild(label);
+
+                    container.appendChild(wrapper);
+                });
+        }
+
         function addSignatureAtCenter() {
             const viewerScroll = document.getElementById('viewerScroll');
             const canvas = document.getElementById('pdfCanvas');
@@ -626,6 +693,20 @@
                     targetPage.drawImage(pngQr, { x: qrX, y: qrY, width: qrSize, height: qrSize });
                 }
 
+                // Gambar TTD dari semua validator yang sudah menempatkan tanda tangannya
+                for (const vp of validatorPlacements) {
+                    const validatorSigBytes = await fetch(vp.signature_path).then(res => res.arrayBuffer());
+                    const pngValidatorSig = await pdfDoc.embedPng(validatorSigBytes);
+                    const targetPage = pages[vp.page - 1];
+
+                    targetPage.drawImage(pngValidatorSig, {
+                        x: vp.x,
+                        y: vp.y,
+                        width: vp.width,
+                        height: vp.height,
+                    });
+                }
+
                 const modifiedPdfBytes = await pdfDoc.save();
 
                 const formData = new FormData();
@@ -650,6 +731,41 @@
                 alert('Terjadi kesalahan: ' + error.message);
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fa-solid fa-stamp"></i> Sahkan Dokumen';
+            }
+        }
+
+        async function prosesSahkanTanpaTtd() {
+            if (!confirm('Dokumen akan disahkan TANPA tanda tangan Anda. Aspri akan menempelkan TTD nanti. Lanjutkan?')) {
+                return;
+            }
+
+            const btn = document.getElementById('submitWithoutSignBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Memproses...';
+
+            try {
+                const formData = new FormData();
+                formData.append('_token', '{{ csrf_token() }}');
+
+                const response = await fetch("{{ route('dirut.sign-without-signature', $document->id) }}", {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else if (response.ok) {
+                    window.location.href = "{{ route('app.dirut.dashboard') }}";
+                } else {
+                    alert('Terjadi kesalahan saat menyimpan dokumen.');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-clock"></i> Sahkan Tanpa TTD';
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Terjadi kesalahan: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-clock"></i> Sahkan Tanpa TTD';
             }
         }
 

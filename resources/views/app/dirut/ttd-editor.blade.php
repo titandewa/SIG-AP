@@ -22,6 +22,31 @@
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
+
+        .signature-instance {
+            touch-action: none;
+        }
+        .handle {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: #10b981;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            z-index: 5;
+            touch-action: none;
+        }
+        @media (max-width: 1024px) {
+            .handle { width: 22px; height: 22px; }
+        }
+        .handle-nw { top: -8px; left: -8px; cursor: nwse-resize; }
+        .handle-n  { top: -8px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle-ne { top: -8px; right: -8px; cursor: nesw-resize; }
+        .handle-e  { top: 50%; right: -8px; transform: translateY(-50%); cursor: ew-resize; }
+        .handle-se { bottom: -8px; right: -8px; cursor: nwse-resize; }
+        .handle-s  { bottom: -8px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle-sw { bottom: -8px; left: -8px; cursor: nesw-resize; }
+        .handle-w  { top: 50%; left: -8px; transform: translateY(-50%); cursor: ew-resize; }
     </style>
 
     <div class="flex flex-col lg:h-[calc(100vh-64px)] -m-3 sm:-m-5 lg:-m-8 lg:overflow-hidden">
@@ -158,6 +183,7 @@
                 'width' => $p->width,
                 'height' => $p->height,
                 'signature_path' => asset('storage/' . $p->signature_path),
+                'name' => $p->user->name ?? 'Validator',
             ];
         })) !!};
 
@@ -469,13 +495,18 @@
             const wrapper = document.createElement('div');
             wrapper.id = id;
             wrapper.className = 'signature-instance absolute cursor-move border-2 border-dashed border-indigo-500 bg-white/40';
-            wrapper.style.width = '480px';
-            wrapper.style.height = '210px';
+
+            // Ukuran awal proporsional ke lebar kanvas, bukan fixed px
+            const defaultWidth = Math.min(Math.max(canvas.clientWidth * 0.35, 90), 300);
+            const defaultHeight = defaultWidth * (210 / 480);
+
+            wrapper.style.width = defaultWidth + 'px';
+            wrapper.style.height = defaultHeight + 'px';
             wrapper.style.top = '0';
             wrapper.style.left = '0';
 
-            const startX = x !== null ? Math.max(x, 0) : Math.max(canvas.clientWidth - 200, 0);
-            const startY = y !== null ? Math.max(y, 0) : Math.max(canvas.clientHeight - 100 - (instanceCounter * 20), 0);
+            const startX = x !== null ? Math.max(x, 0) : Math.max(canvas.clientWidth - defaultWidth - 20, 0);
+            const startY = y !== null ? Math.max(y, 0) : Math.max(canvas.clientHeight - defaultHeight - 20 - (instanceCounter * 20), 0);
 
             wrapper.style.transform = `translate(${startX}px, ${startY}px)`;
             wrapper.setAttribute('data-x', startX);
@@ -553,7 +584,7 @@
 
                     const label = document.createElement('span');
                     label.className = 'absolute -top-5 left-0 text-[9px] font-bold text-emerald-600 bg-white px-1 rounded';
-                    label.textContent = 'TTD Validator';
+                    label.textContent = 'TTD ' + vp.name;
                     wrapper.appendChild(label);
 
                     container.appendChild(wrapper);
@@ -594,6 +625,7 @@
 
         function initDraggable(el) {
             interact(el).draggable({
+                ignoreFrom: '.handle, button',
                 inertia: true,
                 modifiers: [interact.modifiers.restrictRect({ restriction: 'parent', endOnly: true })],
                 listeners: {
@@ -607,8 +639,12 @@
                     }
                 }
             }).resizable({
-                edges: { left: true, right: true, bottom: true, top: true },
-                margin: 10,
+                edges: {
+                    left: '.handle-w, .handle-nw, .handle-sw',
+                    right: '.handle-e, .handle-ne, .handle-se',
+                    top: '.handle-n, .handle-nw, .handle-ne',
+                    bottom: '.handle-s, .handle-sw, .handle-se'
+                },
                 modifiers: [
                     interact.modifiers.restrictSize({ min: { width: 60, height: 30 } }),
                     interact.modifiers.restrictRect({ restriction: 'parent' })

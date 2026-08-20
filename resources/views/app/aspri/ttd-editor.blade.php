@@ -20,6 +20,31 @@
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
+
+        .signature-instance {
+            touch-action: none;
+        }
+        .handle {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: #10b981;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            z-index: 5;
+            touch-action: none;
+        }
+        @media (max-width: 1024px) {
+            .handle { width: 22px; height: 22px; }
+        }
+        .handle-nw { top: -8px; left: -8px; cursor: nwse-resize; }
+        .handle-n  { top: -8px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle-ne { top: -8px; right: -8px; cursor: nesw-resize; }
+        .handle-e  { top: 50%; right: -8px; transform: translateY(-50%); cursor: ew-resize; }
+        .handle-se { bottom: -8px; right: -8px; cursor: nwse-resize; }
+        .handle-s  { bottom: -8px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle-sw { bottom: -8px; left: -8px; cursor: nesw-resize; }
+        .handle-w  { top: 50%; left: -8px; transform: translateY(-50%); cursor: ew-resize; }
     </style>
 
     <div class="flex flex-col lg:h-[calc(100vh-64px)] -m-3 sm:-m-5 lg:-m-8 lg:overflow-hidden">
@@ -86,23 +111,47 @@
             <aside id="signPanel"
                 class="hidden lg:block fixed lg:static inset-x-0 bottom-0 lg:inset-auto z-30 lg:w-72 bg-white border-l border-slate-200 p-5 overflow-y-auto shrink-0 rounded-t-2xl lg:rounded-none shadow-xl lg:shadow-none max-h-[70vh] lg:max-h-none">
                 <div class="flex justify-between items-center lg:block mb-1">
-                    <h2 class="font-bold text-slate-900">Tanda tangan Direksi</h2>
+                    <h2 class="font-bold text-slate-900">Tanda tangan yang perlu ditempel</h2>
                     <button onclick="closeAllPanels()" class="lg:hidden text-slate-400 hover:text-slate-700">
                         <i class="fa-solid fa-xmark text-lg"></i>
                     </button>
                 </div>
-                <p class="text-xs text-slate-500 mb-4">Seret kotak di bawah ke posisi yang diinginkan pada dokumen.</p>
+                <p class="text-xs text-slate-500 mb-4">Seret kartu TTD di bawah ke posisi yang diinginkan pada dokumen.</p>
 
                 <p class="text-xs font-semibold text-slate-600 mb-2">Kotak isian wajib diisi</p>
-                <div id="dragSignatureSource" onclick="addSignatureAtCenter()"
-                    class="flex items-center gap-2 border border-slate-200 rounded-xl p-2 cursor-grab active:cursor-grabbing hover:border-emerald-300 hover:bg-emerald-50/50 transition select-none touch-none">
-                    <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                        <i class="fa-solid fa-pen-nib"></i>
-                    </span>
-                    <div class="min-w-0">
-                        <p class="text-[10px] font-semibold text-emerald-600 leading-tight">Tanda tangan {{ $dirut->name ?? 'Direksi' }}</p>
-                        <img src="{{ asset('storage/' . $dirut->signature_path) }}" class="h-6 object-contain" draggable="false">
+
+                <div class="space-y-2" id="signerSourceList">
+                    <!-- Kartu TTD Dirut -->
+                    <div class="drag-signature-source flex items-center gap-2 border border-slate-200 rounded-xl p-2 cursor-grab active:cursor-grabbing hover:border-emerald-300 hover:bg-emerald-50/50 transition select-none touch-none"
+                        data-user-id="{{ $dirut->id ?? '' }}"
+                        data-name="{{ $dirut->name ?? 'Direksi' }}"
+                        data-signature="{{ asset('storage/' . $dirut->signature_path) }}">
+                        <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-pen-nib"></i>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-semibold text-emerald-600 leading-tight">Tanda tangan {{ $dirut->name ?? 'Direksi' }}</p>
+                            <img src="{{ asset('storage/' . $dirut->signature_path) }}" class="h-6 object-contain" draggable="false">
+                        </div>
                     </div>
+
+                    <!-- Kartu TTD petinggi/validator yang approve tanpa TTD -->
+                    @isset($pendingValidators)
+                        @foreach($pendingValidators as $approval)
+                            <div class="drag-signature-source flex items-center gap-2 border border-slate-200 rounded-xl p-2 cursor-grab active:cursor-grabbing hover:border-emerald-300 hover:bg-emerald-50/50 transition select-none touch-none"
+                                data-user-id="{{ $approval->user->id }}"
+                                data-name="{{ $approval->user->name }}"
+                                data-signature="{{ asset('storage/' . $approval->user->signature_path) }}">
+                                <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                                    <i class="fa-solid fa-pen-nib"></i>
+                                </span>
+                                <div class="min-w-0">
+                                    <p class="text-[10px] font-semibold text-emerald-600 leading-tight">Tanda tangan {{ $approval->user->name }}</p>
+                                    <img src="{{ asset('storage/' . $approval->user->signature_path) }}" class="h-6 object-contain" draggable="false">
+                                </div>
+                            </div>
+                        @endforeach
+                    @endisset
                 </div>
 
                 <p class="text-xs text-slate-400 mt-4">
@@ -122,7 +171,7 @@
         }
 
         const pdfUrl = "{{ asset('storage/' . $document->latestVersion->file_path) }}";
-        const signatureImageSrc = "{{ asset('storage/' . $dirut->signature_path) }}";
+        const dirutUserId = "{{ $dirut->id ?? '' }}";
 
         let originalPdfBytes = null;
         let pdfDocInstance = null;
@@ -138,6 +187,18 @@
         let thumbObserver = null;
         let zoomLevel = 1;
         let currentRenderTask = null;
+        let currentRawViewport = null;
+        const validatorPlacements = {!! json_encode($document->signaturePlacements->map(function ($p) {
+            return [
+                'page' => $p->page_number,
+                'x' => $p->x,
+                'y' => $p->y,
+                'width' => $p->width,
+                'height' => $p->height,
+                'signature_path' => asset('storage/' . $p->signature_path),
+                'name' => $p->user->name ?? 'Validator',
+            ];
+        })) !!};
 
         async function loadPdf() {
             if (!window.pdfjsLib) {
@@ -310,8 +371,10 @@
                 }
             }
 
+            currentRawViewport = rawViewport;
             updateNavButtons();
             renderVisibleSignatures();
+            renderValidatorPlacements();
             highlightActiveThumb();
         }
 
@@ -353,70 +416,87 @@
             await renderPage(currentPage);
         }
 
+        // Setiap kartu TTD (dirut & petinggi lain) di-drag sebagai sumbernya masing-masing.
+        // Info signer (nama, user id, gambar TTD) dibaca dari data-attribute kartu yang di-drag.
         function initSignatureSourceDrag() {
-            const source = document.getElementById('dragSignatureSource');
+            const sources = document.querySelectorAll('.drag-signature-source');
 
-            interact(source).draggable({
-                inertia: false,
-                autoScroll: true,
-                listeners: {
-                    start(event) {
-                        const rect = event.target.getBoundingClientRect();
-                        const clone = event.target.cloneNode(true);
-                        clone.id = 'dragSignatureClone';
-                        clone.style.position = 'fixed';
-                        clone.style.left = rect.left + 'px';
-                        clone.style.top = rect.top + 'px';
-                        clone.style.width = rect.width + 'px';
-                        clone.style.zIndex = 9999;
-                        clone.style.pointerEvents = 'none';
-                        clone.style.opacity = '0.85';
-                        clone.setAttribute('data-x', rect.left);
-                        clone.setAttribute('data-y', rect.top);
-                        document.body.appendChild(clone);
-                        event.target._cloneEl = clone;
-                    },
-                    move(event) {
-                        const clone = event.target._cloneEl;
-                        if (!clone) return;
-                        const x = (parseFloat(clone.getAttribute('data-x')) || 0) + event.dx;
-                        const y = (parseFloat(clone.getAttribute('data-y')) || 0) + event.dy;
-                        clone.style.left = x + 'px';
-                        clone.style.top = y + 'px';
-                        clone.setAttribute('data-x', x);
-                        clone.setAttribute('data-y', y);
-                    },
-                    end(event) {
-                        const clone = event.target._cloneEl;
-                        if (!clone) return;
+            sources.forEach((source) => {
+                source.addEventListener('click', () => {
+                    addSignatureAtCenter(
+                        source.dataset.signature,
+                        source.dataset.name,
+                        source.dataset.userId
+                    );
+                });
 
-                        const cloneRect = clone.getBoundingClientRect();
-                        const dropCenterX = cloneRect.left + cloneRect.width / 2;
-                        const dropCenterY = cloneRect.top + cloneRect.height / 2;
+                interact(source).draggable({
+                    inertia: false,
+                    autoScroll: true,
+                    listeners: {
+                        start(event) {
+                            const rect = event.target.getBoundingClientRect();
+                            const clone = event.target.cloneNode(true);
+                            clone.id = 'dragSignatureClone';
+                            clone.style.position = 'fixed';
+                            clone.style.left = rect.left + 'px';
+                            clone.style.top = rect.top + 'px';
+                            clone.style.width = rect.width + 'px';
+                            clone.style.zIndex = 9999;
+                            clone.style.pointerEvents = 'none';
+                            clone.style.opacity = '0.85';
+                            clone.setAttribute('data-x', rect.left);
+                            clone.setAttribute('data-y', rect.top);
+                            document.body.appendChild(clone);
+                            event.target._cloneEl = clone;
+                        },
+                        move(event) {
+                            const clone = event.target._cloneEl;
+                            if (!clone) return;
+                            const x = (parseFloat(clone.getAttribute('data-x')) || 0) + event.dx;
+                            const y = (parseFloat(clone.getAttribute('data-y')) || 0) + event.dy;
+                            clone.style.left = x + 'px';
+                            clone.style.top = y + 'px';
+                            clone.setAttribute('data-x', x);
+                            clone.setAttribute('data-y', y);
+                        },
+                        end(event) {
+                            const clone = event.target._cloneEl;
+                            if (!clone) return;
 
-                        const container = document.getElementById('pdfContainer');
-                        const containerRect = container.getBoundingClientRect();
+                            const cloneRect = clone.getBoundingClientRect();
+                            const dropCenterX = cloneRect.left + cloneRect.width / 2;
+                            const dropCenterY = cloneRect.top + cloneRect.height / 2;
 
-                        const isOverDocument = (
-                            dropCenterX >= containerRect.left && dropCenterX <= containerRect.right &&
-                            dropCenterY >= containerRect.top && dropCenterY <= containerRect.bottom
-                        );
+                            const container = document.getElementById('pdfContainer');
+                            const containerRect = container.getBoundingClientRect();
 
-                        if (isOverDocument) {
-                            const relX = dropCenterX - containerRect.left - 80;
-                            const relY = dropCenterY - containerRect.top - 35;
-                            addSignatureInstance(relX, relY);
-                            closeAllPanels();
+                            const isOverDocument = (
+                                dropCenterX >= containerRect.left && dropCenterX <= containerRect.right &&
+                                dropCenterY >= containerRect.top && dropCenterY <= containerRect.bottom
+                            );
+
+                            if (isOverDocument) {
+                                const relX = dropCenterX - containerRect.left - 80;
+                                const relY = dropCenterY - containerRect.top - 35;
+                                addSignatureInstance(
+                                    relX, relY,
+                                    event.target.dataset.signature,
+                                    event.target.dataset.name,
+                                    event.target.dataset.userId
+                                );
+                                closeAllPanels();
+                            }
+
+                            clone.remove();
+                            event.target._cloneEl = null;
                         }
-
-                        clone.remove();
-                        event.target._cloneEl = null;
                     }
-                }
+                });
             });
         }
 
-        function addSignatureInstance(x = null, y = null) {
+        function addSignatureInstance(x = null, y = null, signatureSrc, signerName, userId) {
             instanceCounter++;
             const id = 'sig-instance-' + instanceCounter;
 
@@ -425,24 +505,34 @@
 
             const wrapper = document.createElement('div');
             wrapper.id = id;
-            wrapper.className = 'signature-instance absolute cursor-move border-2 border-dashed border-emerald-500 bg-white/40';
-            wrapper.style.width = '480px';
-            wrapper.style.height = '210px';
+            wrapper.className = 'signature-instance absolute cursor-move border-2 border-dashed border-indigo-500 bg-white/40';
+
+            const defaultWidth = Math.min(Math.max(canvas.clientWidth * 0.35, 90), 300);
+            const defaultHeight = defaultWidth * (210 / 480);
+
+            wrapper.style.width = defaultWidth + 'px';
+            wrapper.style.height = defaultHeight + 'px';
             wrapper.style.top = '0';
             wrapper.style.left = '0';
 
-            const startX = x !== null ? Math.max(x, 0) : Math.max(canvas.clientWidth - 200, 0);
-            const startY = y !== null ? Math.max(y, 0) : Math.max(canvas.clientHeight - 100 - (instanceCounter * 20), 0);
+            const startX = x !== null ? Math.max(x, 0) : Math.max(canvas.clientWidth - defaultWidth - 20, 0);
+            const startY = y !== null ? Math.max(y, 0) : Math.max(canvas.clientHeight - defaultHeight - 20 - (instanceCounter * 20), 0);
 
             wrapper.style.transform = `translate(${startX}px, ${startY}px)`;
             wrapper.setAttribute('data-x', startX);
             wrapper.setAttribute('data-y', startY);
 
             const img = document.createElement('img');
-            img.src = signatureImageSrc;
+            img.src = signatureSrc;
             img.className = 'w-full h-full object-contain pointer-events-none';
             img.draggable = false;
             wrapper.appendChild(img);
+
+            // Label nama pemilik TTD, biar aspri gampang bedain kalau ada lebih dari satu
+            const nameLabel = document.createElement('span');
+            nameLabel.className = 'absolute -top-5 left-0 text-[9px] font-bold text-indigo-600 bg-white px-1 rounded whitespace-nowrap';
+            nameLabel.textContent = 'TTD ' + (signerName || '-');
+            wrapper.appendChild(nameLabel);
 
             const delBtn = document.createElement('button');
             delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
@@ -462,7 +552,7 @@
 
             container.appendChild(wrapper);
 
-            const instance = { id, page: currentPage, element: wrapper };
+            const instance = { id, page: currentPage, element: wrapper, signatureSrc, signerName, userId };
             signatureInstances.push(instance);
 
             initDraggable(wrapper);
@@ -475,7 +565,46 @@
             });
         }
 
-        function addSignatureAtCenter() {
+        function renderValidatorPlacements() {
+            document.querySelectorAll('.validator-signature-overlay').forEach(el => el.remove());
+
+            if (!currentRawViewport) return;
+
+            const canvas = document.getElementById('pdfCanvas');
+            const container = document.getElementById('pdfContainer');
+            const scaleX = canvas.clientWidth / currentRawViewport.width;
+            const scaleY = canvas.clientHeight / currentRawViewport.height;
+
+            validatorPlacements
+                .filter(vp => vp.page === currentPage)
+                .forEach(vp => {
+                    const visualWidth = vp.width * scaleX;
+                    const visualHeight = vp.height * scaleY;
+                    const visualX = vp.x * scaleX;
+                    const visualY = (currentRawViewport.height - vp.y - vp.height) * scaleY;
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'validator-signature-overlay absolute border-2 border-dashed border-emerald-500 bg-white/40 pointer-events-none';
+                    wrapper.style.width = visualWidth + 'px';
+                    wrapper.style.height = visualHeight + 'px';
+                    wrapper.style.left = visualX + 'px';
+                    wrapper.style.top = visualY + 'px';
+
+                    const img = document.createElement('img');
+                    img.src = vp.signature_path;
+                    img.className = 'w-full h-full object-contain';
+                    wrapper.appendChild(img);
+
+                    const label = document.createElement('span');
+                    label.className = 'absolute -top-5 left-0 text-[9px] font-bold text-emerald-600 bg-white px-1 rounded';
+                    label.textContent = 'TTD ' + vp.name;
+                    wrapper.appendChild(label);
+
+                    container.appendChild(wrapper);
+                });
+        }
+
+        function addSignatureAtCenter(signatureSrc, signerName, userId) {
             const viewerScroll = document.getElementById('viewerScroll');
             const canvas = document.getElementById('pdfCanvas');
             if (!canvas || !canvas.clientWidth) return;
@@ -495,12 +624,13 @@
             const finalX = Math.max(0, Math.min(fallbackX, maxLeft));
             const finalY = Math.max(0, Math.min(fallbackY, maxTop));
 
-            addSignatureInstance(finalX, finalY);
+            addSignatureInstance(finalX, finalY, signatureSrc, signerName, userId);
             closeAllPanels();
         }
 
         function initDraggable(el) {
             interact(el).draggable({
+                ignoreFrom: '.handle, button',
                 inertia: true,
                 modifiers: [interact.modifiers.restrictRect({ restriction: 'parent', endOnly: true })],
                 listeners: {
@@ -514,8 +644,12 @@
                     }
                 }
             }).resizable({
-                edges: { left: true, right: true, bottom: true, top: true },
-                margin: 10,
+                edges: {
+                    left: '.handle-w, .handle-nw, .handle-sw',
+                    right: '.handle-e, .handle-ne, .handle-se',
+                    top: '.handle-n, .handle-nw, .handle-ne',
+                    bottom: '.handle-s, .handle-sw, .handle-se'
+                },
                 modifiers: [
                     interact.modifiers.restrictSize({ min: { width: 60, height: 30 } }),
                     interact.modifiers.restrictRect({ restriction: 'parent' })
@@ -552,6 +686,14 @@
             return result;
         }
 
+        const signatureBytesCache = new Map();
+        async function getSignatureBytes(url) {
+            if (signatureBytesCache.has(url)) return signatureBytesCache.get(url);
+            const bytes = await fetch(url).then(res => res.arrayBuffer());
+            signatureBytesCache.set(url, bytes);
+            return bytes;
+        }
+
         async function prosesTandaTangan() {
             if (signatureInstances.length === 0) {
                 alert('Tambahkan minimal satu tanda tangan terlebih dahulu.');
@@ -567,12 +709,12 @@
                 const verifyUrl = "{{ url('/verify') }}/" + qrHash;
                 const qrApiUrl = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + encodeURIComponent(verifyUrl);
                 const qrImageBytes = await fetch(qrApiUrl).then(res => res.arrayBuffer());
-                const signatureImageBytes = await fetch(signatureImageSrc).then(res => res.arrayBuffer());
 
                 const pdfDoc = await PDFLib.PDFDocument.load(originalPdfBytes, { ignoreEncryption: true });
-                const pngSignature = await pdfDoc.embedPng(signatureImageBytes);
                 const pngQr = await pdfDoc.embedPng(qrImageBytes);
                 const pages = pdfDoc.getPages();
+
+                const signedByUserIds = [];
 
                 for (const inst of signatureInstances) {
                     const targetPage = pages[inst.page - 1];
@@ -592,12 +734,32 @@
                     const pdfHeight = visualHeight * scaleY;
                     const pdfY = rawVp.height - (visualY * scaleY) - pdfHeight;
 
+                    const sigBytes = await getSignatureBytes(inst.signatureSrc);
+                    const pngSignature = await pdfDoc.embedPng(sigBytes);
+
                     targetPage.drawImage(pngSignature, { x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight });
 
-                    const qrSize = Math.min(pdfHeight, 40);
-                    const qrX = pdfX + pdfWidth + 8;
-                    const qrY = pdfY + (pdfHeight - qrSize) / 2;
-                    targetPage.drawImage(pngQr, { x: qrX, y: qrY, width: qrSize, height: qrSize });
+                    if (String(inst.userId) === String(dirutUserId)) {
+                        const qrSize = Math.min(pdfHeight, 40);
+                        const qrX = pdfX + pdfWidth + 8;
+                        const qrY = pdfY + (pdfHeight - qrSize) / 2;
+                        targetPage.drawImage(pngQr, { x: qrX, y: qrY, width: qrSize, height: qrSize });
+                    }
+
+                    if (inst.userId) signedByUserIds.push(inst.userId);
+                }
+
+                for (const vp of validatorPlacements) {
+                    const validatorSigBytes = await getSignatureBytes(vp.signature_path);
+                    const pngValidatorSig = await pdfDoc.embedPng(validatorSigBytes);
+                    const targetPage = pages[vp.page - 1];
+
+                    targetPage.drawImage(pngValidatorSig, {
+                        x: vp.x,
+                        y: vp.y,
+                        width: vp.width,
+                        height: vp.height,
+                    });
                 }
 
                 const modifiedPdfBytes = await pdfDoc.save();
@@ -606,6 +768,7 @@
                 const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
                 formData.append('signed_pdf', blob, 'signed.pdf');
                 formData.append('qr_hash', qrHash);
+                formData.append('signed_by_user_ids', JSON.stringify(signedByUserIds));
                 formData.append('_token', '{{ csrf_token() }}');
 
                 const response = await fetch("{{ route('aspri.ttd.save', $document->id) }}", { method: 'POST', body: formData });

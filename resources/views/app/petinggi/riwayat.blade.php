@@ -1,6 +1,7 @@
 <x-app-shell title="SIGAP - Riwayat Review Saya" role="petinggi" roleColor="slate" :sidebarItems="[
     ['label' => 'Dashboard', 'url' => route('app.petinggi.dashboard'), 'icon' => 'fa-solid fa-gauge-high'],
     ['label' => 'Riwayat', 'url' => route('petinggi.riwayat'), 'icon' => 'fa-solid fa-clock-rotate-left'],
+    ['label' => 'Atur TTD', 'url' => route('petinggi.signature.page'), 'icon' => 'fa-solid fa-signature'],
 ]">
 
     <div class="max-w-5xl mx-auto">

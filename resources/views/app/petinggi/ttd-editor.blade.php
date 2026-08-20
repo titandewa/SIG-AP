@@ -1,6 +1,7 @@
 <x-app-shell title="SIGAP - Tempatkan Tanda Tangan" role="petinggi" roleColor="slate" :sidebarItems="[
     ['label' => 'Dashboard', 'url' => route('app.petinggi.dashboard'), 'icon' => 'fa-solid fa-gauge-high'],
     ['label' => 'Riwayat', 'url' => route('petinggi.riwayat'), 'icon' => 'fa-solid fa-clock-rotate-left'],
+    ['label' => 'Atur TTD', 'url' => route('petinggi.signature.page'), 'icon' => 'fa-solid fa-signature'],
 ]">
     <style>
         @media (min-width: 1024px) {
@@ -20,6 +21,28 @@
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
+        .signature-instance { touch-action: none; }
+        .handle {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: #10b981;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            z-index: 5;
+            touch-action: none;
+        }
+        @media (max-width: 1024px) {
+            .handle { width: 22px; height: 22px; }
+        }
+        .handle-nw { top: -8px; left: -8px; cursor: nwse-resize; }
+        .handle-n  { top: -8px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle-ne { top: -8px; right: -8px; cursor: nesw-resize; }
+        .handle-e  { top: 50%; right: -8px; transform: translateY(-50%); cursor: ew-resize; }
+        .handle-se { bottom: -8px; right: -8px; cursor: nwse-resize; }
+        .handle-s  { bottom: -8px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle-sw { bottom: -8px; left: -8px; cursor: nesw-resize; }
+        .handle-w  { top: 50%; left: -8px; transform: translateY(-50%); cursor: ew-resize; }
     </style>
 
     <div class="flex flex-col lg:h-[calc(100vh-64px)] -m-3 sm:-m-5 lg:-m-8 lg:overflow-hidden">
@@ -89,6 +112,9 @@
                     <a href="{{ route('app.petinggi.dashboard') }}" class="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-semibold rounded-lg transition">
                         Batalkan
                     </a>
+                    <button id="submitWithoutSignBtn" onclick="prosesSetujuiTanpaTtd()" class="px-4 sm:px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-lg transition shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-clock"></i> <span class="hidden sm:inline">Setujui Tanpa TTD</span><span class="inline sm:hidden">Tanpa TTD</span>
+                    </button>
                     <button id="submitBtn" onclick="prosesSimpanTtd()" class="px-4 sm:px-6 py-2.5 bg-[#4DA8FF] hover:brightness-110 text-white text-sm font-bold rounded-lg transition shadow-md flex items-center gap-2">
                         <i class="fa-solid fa-stamp"></i> <span class="hidden sm:inline">Setujui & Simpan TTD</span><span class="inline sm:hidden">Setujui</span>
                     </button>
@@ -147,6 +173,18 @@
         let thumbObserver = null;
         let zoomLevel = 1;
         let currentRenderTask = null;
+        let currentRawViewport = null;
+        const validatorPlacements = {!! json_encode($document->signaturePlacements->map(function ($p) {
+            return [
+                'page' => $p->page_number,
+                'x' => $p->x,
+                'y' => $p->y,
+                'width' => $p->width,
+                'height' => $p->height,
+                'signature_path' => asset('storage/' . $p->signature_path),
+                'name' => $p->user->name ?? 'Validator',
+            ];
+        })) !!};
 
         async function loadPdf() {
             if (!window.pdfjsLib) {
@@ -283,6 +321,7 @@
 
             const page = await pdfDocInstance.getPage(num);
             const rawViewport = page.getViewport({ scale: 1 });
+            currentRawViewport = rawViewport;
 
             const viewerScroll = document.getElementById('viewerScroll');
             const availableWidth = viewerScroll.clientWidth - 40;
@@ -319,6 +358,7 @@
 
             updateNavButtons();
             renderVisibleSignatures();
+            renderValidatorPlacements();
             highlightActiveThumb();
         }
 
@@ -432,14 +472,19 @@
 
             const wrapper = document.createElement('div');
             wrapper.id = id;
-            wrapper.className = 'signature-instance absolute cursor-move border-2 border-dashed border-[#4DA8FF] bg-white/40';
-            wrapper.style.width = '160px';
-            wrapper.style.height = '70px';
+            wrapper.className = 'signature-instance absolute cursor-move border-2 border-dashed border-indigo-500 bg-white/40';
+
+            // Ukuran awal proporsional ke lebar kanvas, bukan fixed px
+            const defaultWidth = Math.min(Math.max(canvas.clientWidth * 0.35, 90), 300);
+            const defaultHeight = defaultWidth * (210 / 480);
+
+            wrapper.style.width = defaultWidth + 'px';
+            wrapper.style.height = defaultHeight + 'px';
             wrapper.style.top = '0';
             wrapper.style.left = '0';
 
-            const startX = x !== null ? Math.max(x, 0) : Math.max(canvas.clientWidth - 200, 0);
-            const startY = y !== null ? Math.max(y, 0) : Math.max(canvas.clientHeight - 100 - (instanceCounter * 20), 0);
+            const startX = x !== null ? Math.max(x, 0) : Math.max(canvas.clientWidth - defaultWidth - 20, 0);
+            const startY = y !== null ? Math.max(y, 0) : Math.max(canvas.clientHeight - defaultHeight - 20 - (instanceCounter * 20), 0);
 
             wrapper.style.transform = `translate(${startX}px, ${startY}px)`;
             wrapper.setAttribute('data-x', startX);
@@ -482,6 +527,48 @@
             });
         }
 
+        // Menampilkan TTD dari validator (read-only, gak bisa digeser/dihapus dirut)
+        // sebagai overlay di atas canvas, biar dirut bisa lihat siapa saja yang
+        // sudah TTD sebelum dia ikut menyahkan dokumen.
+        function renderValidatorPlacements() {
+            document.querySelectorAll('.validator-signature-overlay').forEach(el => el.remove());
+
+            if (!currentRawViewport) return;
+
+            const canvas = document.getElementById('pdfCanvas');
+            const container = document.getElementById('pdfContainer');
+            const scaleX = canvas.clientWidth / currentRawViewport.width;
+            const scaleY = canvas.clientHeight / currentRawViewport.height;
+
+            validatorPlacements
+                .filter(vp => vp.page === currentPage)
+                .forEach(vp => {
+                    const visualWidth = vp.width * scaleX;
+                    const visualHeight = vp.height * scaleY;
+                    const visualX = vp.x * scaleX;
+                    const visualY = (currentRawViewport.height - vp.y - vp.height) * scaleY;
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'validator-signature-overlay absolute border-2 border-dashed border-emerald-500 bg-white/40 pointer-events-none';
+                    wrapper.style.width = visualWidth + 'px';
+                    wrapper.style.height = visualHeight + 'px';
+                    wrapper.style.left = visualX + 'px';
+                    wrapper.style.top = visualY + 'px';
+
+                    const img = document.createElement('img');
+                    img.src = vp.signature_path;
+                    img.className = 'w-full h-full object-contain';
+                    wrapper.appendChild(img);
+
+                    const label = document.createElement('span');
+                    label.className = 'absolute -top-5 left-0 text-[9px] font-bold text-emerald-600 bg-white px-1 rounded';
+                    label.textContent = 'TTD ' + vp.name;
+                    wrapper.appendChild(label);
+
+                    container.appendChild(wrapper);
+                });
+        }
+
         function addSignatureAtCenter() {
             const viewerScroll = document.getElementById('viewerScroll');
             const canvas = document.getElementById('pdfCanvas');
@@ -516,6 +603,7 @@
 
         function initDraggable(el) {
             interact(el).draggable({
+                ignoreFrom: '.handle, button',
                 inertia: true,
                 modifiers: [interact.modifiers.restrictRect({ restriction: 'parent', endOnly: true })],
                 listeners: {
@@ -529,8 +617,12 @@
                     }
                 }
             }).resizable({
-                edges: { left: true, right: true, bottom: true, top: true },
-                margin: 10,
+                edges: {
+                    left: '.handle-w, .handle-nw, .handle-sw',
+                    right: '.handle-e, .handle-ne, .handle-se',
+                    top: '.handle-n, .handle-nw, .handle-ne',
+                    bottom: '.handle-s, .handle-sw, .handle-se'
+                },
                 modifiers: [
                     interact.modifiers.restrictSize({ min: { width: 60, height: 30 } }),
                     interact.modifiers.restrictRect({ restriction: 'parent' })
@@ -627,6 +719,45 @@
                 alert('Terjadi kesalahan: ' + error.message);
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fa-solid fa-stamp"></i> Setujui & Simpan TTD';
+            }
+        }
+
+        async function prosesSetujuiTanpaTtd() {
+            if (!confirm('Dokumen akan disetujui TANPA tanda tangan Anda. Admin akan menempelkan TTD Anda nanti. Lanjutkan?')) {
+                return;
+            }
+
+            const btn = document.getElementById('submitWithoutSignBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Memproses...';
+
+            try {
+                const formData = new FormData();
+                formData.append('_token', '{{ csrf_token() }}');
+
+                const response = await fetch("{{ route('petinggi.sign-without-signature', $document->id) }}", {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    alert(data.message);
+                    window.location.href = "{{ route('app.petinggi.dashboard') }}";
+                } else {
+                    alert(data.message || 'Terjadi kesalahan saat menyimpan.');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-clock"></i> Setujui Tanpa TTD';
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Terjadi kesalahan pada sistem.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-clock"></i> Setujui Tanpa TTD';
             }
         }
 

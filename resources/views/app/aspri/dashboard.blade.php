@@ -36,8 +36,14 @@
                 @php
                     $unreadCount = $document->comments->where('is_read', false)->count();
                 @endphp
+                @php
+                    $needsTtd = $document->status === 'DISETUJUI_TANPA_TTD';
+                    $targetRoute = $needsTtd
+                        ? route('aspri.ttd.editor', $document->id)
+                        : route('aspri.detail', $document->id);
+                @endphp
                 <div class="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md hover:border-indigo-300 transition relative cursor-pointer"
-                    onclick="window.location.href='{{ route('aspri.detail', $document->id) }}'">
+                    onclick="window.location.href='{{ $targetRoute }}'">
 
                     @if($unreadCount > 0)
                         <span class="absolute -top-2 -right-2 bg-rose-600 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow">
@@ -56,11 +62,20 @@
                             <span class="font-bold text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider inline-flex items-center
                                 {{ $document->status === 'DITINJAU' ? 'bg-amber-100 text-amber-800' : '' }}
                                 {{ $document->status === 'PENDING' ? 'bg-amber-100 text-amber-800' : '' }}
-                                {{ $document->status === 'SIAP_TTD' ? 'bg-blue-100 text-blue-800' : '' }}">
+                                {{ $document->status === 'SIAP_TTD' ? 'bg-blue-100 text-blue-800' : '' }}
+                                {{ $needsTtd ? 'bg-purple-100 text-purple-800' : '' }}">
                                 @if(in_array($document->status, ['DITINJAU', 'PENDING']))
                                     <i class="fa-solid fa-spinner animate-spin mr-1"></i>
+                                @elseif($needsTtd)
+                                    <i class="fa-solid fa-pen-nib mr-1"></i>
                                 @endif
-                                {{ $document->status }}
+                                @switch($document->status)
+                                    @case('DITINJAU') Ditinjau @break
+                                    @case('PENDING') Perlu Revisi @break
+                                    @case('SIAP_TTD') Siap TTD @break
+                                    @case('DISETUJUI_TANPA_TTD') Perlu Tempel TTD @break
+                                    @default {{ $document->status }}
+                                @endswitch
                             </span>
                         </div>
                     </div>
@@ -138,14 +153,29 @@
 
                         <div id="petinggiListBox" class="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs max-h-40 overflow-y-auto">
                             @forelse($petinggiList as $petinggi)
-                                <label class="petinggi-item flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" name="petinggi_ids[]" value="{{ $petinggi->id }}" class="rounded text-indigo-600">
-                                    <span>{{ $petinggi->name }}</span>
-                                </label>
+                                <div class="petinggi-item flex items-center justify-between gap-2 py-1 border-b border-slate-100 last:border-0">
+                                    <label class="flex items-center gap-2 cursor-pointer flex-1">
+                                        <input type="checkbox" class="petinggi-select rounded text-indigo-600" data-id="{{ $petinggi->id }}">
+                                        <span>{{ $petinggi->name }}</span>
+                                    </label>
+                                    <div class="flex items-center gap-3 text-[10px] text-slate-500">
+                                        <label class="flex items-center gap-1 cursor-pointer">
+                                            <input type="radio" name="mode_{{ $petinggi->id }}" value="validasi" class="mode-radio" data-id="{{ $petinggi->id }}" checked>
+                                            Validasi only
+                                        </label>
+                                        <label class="flex items-center gap-1 cursor-pointer">
+                                            <input type="radio" name="mode_{{ $petinggi->id }}" value="sign" class="mode-radio" data-id="{{ $petinggi->id }}">
+                                            Sign
+                                        </label>
+                                    </div>
+                                </div>
                             @empty
                                 <p class="text-slate-400 italic">Belum ada user dengan role Validator.</p>
                             @endforelse
                         </div>
+
+                        <!-- hidden inputs akan diisi via JS sebelum submit -->
+                        <div id="hiddenPetinggiInputs"></div>
                         <p id="petinggiNoResult" class="hidden text-[11px] text-slate-400 italic mt-1">Tidak ada nama yang cocok.</p>
 
                         @error('petinggi_ids')
@@ -265,6 +295,28 @@
 
             document.getElementById('petinggiNoResult').classList.toggle('hidden', anyVisible);
         }
+
+        document.getElementById('skForm').addEventListener('submit', function (e) {
+        const container = document.getElementById('hiddenPetinggiInputs');
+        container.innerHTML = '';
+
+        document.querySelectorAll('.petinggi-select:checked').forEach(function (checkbox) {
+                const id = checkbox.dataset.id;
+                const mode = document.querySelector(`input[name="mode_${id}"]:checked`).value;
+
+                const idInput = document.createElement('input');
+                idInput.type = 'hidden';
+                idInput.name = 'petinggi_ids[]';
+                idInput.value = id;
+                container.appendChild(idInput);
+
+                const signInput = document.createElement('input');
+                signInput.type = 'hidden';
+                signInput.name = `need_sign[${id}]`;
+                signInput.value = mode === 'sign' ? 1 : 0;
+                container.appendChild(signInput);
+            });
+        });
     </script>
 
 </x-app-shell>

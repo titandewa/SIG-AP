@@ -247,7 +247,18 @@ class SkController extends Controller
             return redirect()->back()->with('error', 'Belum ada akun Direksi yang mengatur tanda tangan.');
         }
 
-        return view('app.aspri.ttd-editor', compact('document', 'dirut'));
+        // Cari petinggi yang statusnya sudah TERIMA, butuh TTD (need_sign),
+        // tapi belum ada tanda tangannya (SignaturePlacement) untuk dokumen ini
+        $signedUserIds = $document->signaturePlacements()->pluck('user_id')->toArray();
+
+        $pendingValidators = $document->approvals()
+            ->where('status', 'TERIMA')
+            ->where('need_sign', true)
+            ->whereNotIn('user_id', $signedUserIds)
+            ->with('user')
+            ->get();
+
+        return view('app.aspri.ttd-editor', compact('document', 'dirut', 'pendingValidators'));
     }
 
     public function saveTtd(Request $request, $id)

@@ -40,4 +40,9 @@ class Document extends Model
     protected $casts = [
         'signed_at' => 'datetime',
     ];
+
+    public function signaturePlacements()
+    {
+        return $this->hasMany(SignaturePlacement::class);
+    }
 }

@@ -53,12 +53,14 @@ class WhatsAppNotificationService
         $link = route('app.petinggi.dashboard');
         $tanggalUpload = $document->created_at->translatedFormat('d F Y, H:i');
         $salam = $this->salamWaktu();
+        $pengirim = $document->user->name ?? '-';
 
         $pesan = "Selamat {$salam} Bapak/Ibu {$user->name}\n\n"
             . "Untuk melengkapi administrasi, berikut saya lampirkan Surat Pengajuan yang perlu ditinjau :\n\n"
             . "Judul Surat : {$document->title}\n"
             . "Nomor Surat : {$document->document_number}\n"
-            . "Tgl Pengajuan : {$tanggalUpload}\n\n"
+            . "Tgl Pengajuan : {$tanggalUpload}\n"
+            . "Diajukan oleh : {$pengirim}\n\n"
             . "Mohon segera ditinjau melalui link berikut, dan apabila tidak setuju mohon menyertakan alasan pada kolom komentar\n"
             . "{$link}\n\n"
             . "Terimakasih";
@@ -94,12 +96,14 @@ class WhatsAppNotificationService
         $link = route('app.dirut.dashboard');
         $tanggalUpload = $document->created_at->translatedFormat('d F Y, H:i');
         $salam = $this->salamWaktu();
+        $pengirim = $document->user->name ?? '-';
 
         $pesan = "Selamat {$salam} Bapak/Ibu {$dirut->name}\n\n"
             . "Untuk melengkapi administrasi, berikut saya lampirkan Surat Pengajuan yang perlu ditinjau :\n\n"
             . "Judul Surat : {$document->title}\n"
             . "Nomor Surat : {$document->document_number}\n"
-            . "Tgl Pengajuan : {$tanggalUpload}\n\n"
+            . "Tgl Pengajuan : {$tanggalUpload}\n"
+            . "Diajukan oleh : {$pengirim}\n\n"
             . "Mohon segera ditinjau melalui link berikut, dan apabila tidak setuju mohon menyertakan alasan pada kolom komentar\n"
             . "{$link}\n\n"
             . "Terimakasih";
@@ -114,12 +118,14 @@ class WhatsAppNotificationService
         }
 
         $nomor = $this->formatNomorWA($user->phone);
+        $pengirim = $document->user->name ?? '-';
 
         $pesan = "Selamat {$salam} Bapak/Ibu {$user->name}\n\n"
             . "Untuk melengkapi administrasi, berikut saya lampirkan Surat Pengajuan yang perlu ditinjau :\n\n"
             . "Judul Surat : {$document->title}\n"
             . "Nomor Surat : {$document->document_number}\n"
-            . "Tgl Pengajuan : {$tanggalUpload}\n\n"
+            . "Tgl Pengajuan : {$tanggalUpload}\n"
+            . "Diajukan oleh : {$pengirim}\n\n"
             . "Mohon segera ditinjau melalui link berikut, dan apabila tidak setuju mohon menyertakan alasan pada kolom komentar\n"
             . "{$link}\n\n"
             . "Terimakasih";

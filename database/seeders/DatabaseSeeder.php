@@ -404,7 +404,7 @@ class DatabaseSeeder extends Seeder
         User::create([
             'name' => 'Direksi',
             'email' => 'direksi@sigap.com',
-            'phone' => '',
+            'phone' => '082335813978',
             'role' => 'dirut',
             'password' => Hash::make('password'),
         ]);

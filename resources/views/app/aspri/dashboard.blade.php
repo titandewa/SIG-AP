@@ -198,6 +198,21 @@
         </div>
     </div>
 
+    <!-- Modal Konfirmasi Validator -->
+    <div id="confirmModal" class="hidden fixed inset-0 bg-slate-900/60 z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full">
+            <div class="p-6">
+                <h2 class="text-base font-bold text-slate-900 mb-3">Konfirmasi Validator</h2>
+                <p class="text-xs text-slate-500 mb-3">Dokumen akan dikirim ke validator berikut:</p>
+                <ul id="confirmList" class="space-y-2 text-xs mb-4 max-h-48 overflow-y-auto"></ul>
+                <div class="flex gap-2">
+                    <button type="button" id="cancelConfirmBtn" class="flex-1 py-2 rounded-lg border border-slate-300 text-slate-600 text-sm">Batal</button>
+                    <button type="button" id="proceedConfirmBtn" class="flex-1 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold">Ya, Ajukan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         if (document.body.dataset.hasErrors === 'true') {
             document.getElementById('uploadModal').classList.remove('hidden');
@@ -271,13 +286,68 @@
         const submitBtn = document.getElementById('submitBtn');
         const submitBtnText = document.getElementById('submitBtnText');
         const submitBtnLoading = document.getElementById('submitBtnLoading');
+        
+        const confirmModal = document.getElementById('confirmModal');
+        const confirmList = document.getElementById('confirmList');
+        const cancelConfirmBtn = document.getElementById('cancelConfirmBtn');
+        const proceedConfirmBtn = document.getElementById('proceedConfirmBtn');
 
-        skForm.addEventListener('submit', () => {
+        skForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const checked = document.querySelectorAll('.petinggi-select:checked');
+
+            if (checked.length === 0) {
+                alert('Pilih minimal 1 Validator sebelum mengajukan.');
+                return;
+            }
+
+            // Bangun hidden input
+            const container = document.getElementById('hiddenPetinggiInputs');
+            container.innerHTML = '';
+            confirmList.innerHTML = '';
+
+            checked.forEach(function (checkbox) {
+                const id = checkbox.dataset.id;
+                const name = checkbox.closest('.petinggi-item').querySelector('span').textContent;
+                const mode = document.querySelector(`input[name="mode_${id}"]:checked`).value;
+
+                const idInput = document.createElement('input');
+                idInput.type = 'hidden';
+                idInput.name = 'petinggi_ids[]';
+                idInput.value = id;
+                container.appendChild(idInput);
+
+                const signInput = document.createElement('input');
+                signInput.type = 'hidden';
+                signInput.name = `need_sign[${id}]`;
+                signInput.value = mode === 'sign' ? 1 : 0;
+                container.appendChild(signInput);
+
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-100';
+                li.innerHTML = `<span class="font-medium text-slate-700">${name}</span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${mode === 'sign' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600'}">
+                        ${mode === 'sign' ? 'Sign' : 'Validasi only'}
+                    </span>`;
+                confirmList.appendChild(li);
+            });
+
+            confirmModal.classList.remove('hidden');
+        });
+
+        cancelConfirmBtn.addEventListener('click', () => {
+            confirmModal.classList.add('hidden');
+        });
+
+        proceedConfirmBtn.addEventListener('click', () => {
+            confirmModal.classList.add('hidden');
             submitBtn.disabled = true;
             submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
             submitBtnText.classList.add('hidden');
             submitBtnLoading.classList.remove('hidden');
             submitBtnLoading.classList.add('flex');
+            skForm.submit();
         });
 
         // Fungsi Filter Validator secara Real-time
@@ -295,28 +365,6 @@
 
             document.getElementById('petinggiNoResult').classList.toggle('hidden', anyVisible);
         }
-
-        document.getElementById('skForm').addEventListener('submit', function (e) {
-        const container = document.getElementById('hiddenPetinggiInputs');
-        container.innerHTML = '';
-
-        document.querySelectorAll('.petinggi-select:checked').forEach(function (checkbox) {
-                const id = checkbox.dataset.id;
-                const mode = document.querySelector(`input[name="mode_${id}"]:checked`).value;
-
-                const idInput = document.createElement('input');
-                idInput.type = 'hidden';
-                idInput.name = 'petinggi_ids[]';
-                idInput.value = id;
-                container.appendChild(idInput);
-
-                const signInput = document.createElement('input');
-                signInput.type = 'hidden';
-                signInput.name = `need_sign[${id}]`;
-                signInput.value = mode === 'sign' ? 1 : 0;
-                container.appendChild(signInput);
-            });
-        });
     </script>
 
 </x-app-shell>

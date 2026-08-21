@@ -277,7 +277,8 @@ class SkController extends Controller
         }
 
         $signedFile = $request->file('signed_pdf');
-        $signedFileName = 'signed_' . $doc->document_number . '_' . time() . '.pdf';
+        $safeDocNumber = Str::slug($doc->document_number);
+        $signedFileName = 'signed_' . $safeDocNumber . '_' . time() . '.pdf';
         $signedRelativePath = 'documents/signed/' . $signedFileName;
         Storage::disk('public')->put($signedRelativePath, file_get_contents($signedFile));
 

@@ -1,1 +1,1 @@
-7
+import '../../public/js/signature-editor.js';

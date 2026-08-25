@@ -15,7 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Mendaftarkan alias middleware role custom
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleManager::class,
+            'force.password.reset' => \App\Http\Middleware\ForcePasswordReset::class,
         ]);
+
+        $middleware->appendToGroup('web', \App\Http\Middleware\ForcePasswordReset::class);
 
         // Percaya header X-Forwarded-* dari proxy (ngrok/Laragon) biar Laravel
         // baca host & scheme asli dari browser, bukan dari proxy lokal.

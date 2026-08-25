@@ -20,6 +20,7 @@ class User extends Authenticatable
         'role',
         'password',
         'signature_path',
+        'force_password_reset',
     ];
 
     /**

@@ -32,6 +32,8 @@ class RoleManager
                     return redirect()->route('app.petinggi.dashboard');
                 case 'dirut':
                     return redirect()->route('app.dirut.dashboard');
+                case 'admin':
+                    return redirect()->route('app.admin.dashboard');
                 default:
                     abort(403, 'Akses tidak diizinkan.');
             }

@@ -185,5 +185,39 @@
             }
         }
     </script>
+
+        {{-- Modal Set Password Baru (muncul kalau akun statusnya di-reset admin) --}}
+    <div id="resetPasswordModal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6">
+            <div class="mb-4">
+                <h3 class="text-lg font-bold text-slate-900">Buat Password Baru</h3>
+                <p class="text-xs text-slate-500 mt-1">Password akunmu direset oleh admin. Buat password baru untuk melanjutkan.</p>
+            </div>
+
+            <form method="POST" action="{{ route('password.reset-forced') }}" class="space-y-3">
+                @csrf
+                <input type="hidden" name="email" value="{{ session('reset_email') }}">
+
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 mb-1 block">Password Baru</label>
+                    <input type="password" name="password" required minlength="8" autofocus class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#4DA8FF]">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 mb-1 block">Konfirmasi Password</label>
+                    <input type="password" name="password_confirmation" required minlength="8" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#4DA8FF]">
+                </div>
+
+                <button type="submit" class="w-full bg-[#0D1B3D] hover:brightness-110 text-white font-semibold py-2.5 rounded-xl text-sm transition mt-1">
+                    Simpan & Kembali ke Login
+                </button>
+            </form>
+        </div>
+    </div>
+
+    @if(session('show_reset_modal'))
+        <script>
+            document.getElementById('resetPasswordModal').classList.remove('hidden');
+        </script>
+    @endif
 </body>
 </html>

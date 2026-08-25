@@ -703,6 +703,8 @@
                 const pngQr = await pdfDoc.embedPng(qrImageBytes);
                 const pages = pdfDoc.getPages();
 
+                const placementsData = [];
+
                 for (const inst of signatureInstances) {
                     const targetPage = pages[inst.page - 1];
                     const pageForScale = await pdfDocInstance.getPage(inst.page);
@@ -727,6 +729,14 @@
                     const qrX = pdfX + pdfWidth + 8;
                     const qrY = pdfY + (pdfHeight - qrSize) / 2;
                     targetPage.drawImage(pngQr, { x: qrX, y: qrY, width: qrSize, height: qrSize });
+
+                    placementsData.push({
+                        page_number: inst.page,
+                        x: pdfX,
+                        y: pdfY,
+                        width: pdfWidth,
+                        height: pdfHeight,
+                    });
                 }
 
                 // Gambar TTD dari semua validator yang sudah menempatkan tanda tangannya
@@ -749,6 +759,7 @@
                 const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
                 formData.append('signed_pdf', blob, 'signed.pdf');
                 formData.append('qr_hash', qrHash);
+                formData.append('placements', JSON.stringify(placementsData));
                 formData.append('_token', '{{ csrf_token() }}');
 
                 const response = await fetch("{{ route('dirut.sign', $document->id) }}", { method: 'POST', body: formData });

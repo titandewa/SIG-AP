@@ -241,14 +241,19 @@ class SkController extends Controller
             ->where('status', 'DISETUJUI_TANPA_TTD')
             ->findOrFail($id);
 
-        $dirut = User::where('role', 'dirut')->whereNotNull('signature_path')->first();
+        // Kalau signed_at sudah terisi, artinya dirut SUDAH TTD asli sendiri
+        // (via sign()), PDF-nya sudah ada TTD+QR dirut. Kalau belum, berarti
+        // dirut belum TTD sama sekali (via signWithoutSignature).
+        $dirutAlreadySigned = !is_null($document->signed_at);
 
-        if (!$dirut) {
-            return redirect()->back()->with('error', 'Belum ada akun Direksi yang mengatur tanda tangan.');
+        $dirut = null;
+        if (!$dirutAlreadySigned) {
+            $dirut = User::where('role', 'dirut')->whereNotNull('signature_path')->first();
+            if (!$dirut) {
+                return redirect()->back()->with('error', 'Belum ada akun Direksi yang mengatur tanda tangan.');
+            }
         }
 
-        // Cari petinggi yang statusnya sudah TERIMA, butuh TTD (need_sign),
-        // tapi belum ada tanda tangannya (SignaturePlacement) untuk dokumen ini
         $signedUserIds = $document->signaturePlacements()->pluck('user_id')->toArray();
 
         $pendingValidators = $document->approvals()
@@ -258,14 +263,18 @@ class SkController extends Controller
             ->with('user')
             ->get();
 
-        return view('app.aspri.ttd-editor', compact('document', 'dirut', 'pendingValidators'));
+        // Kalau dirut sudah TTD, mulai dari file yang SUDAH ada TTD dirut+QR.
+        // Kalau belum, mulai dari file asli.
+        $pdfSourcePath = $dirutAlreadySigned ? $document->signed_file_path : $document->latestVersion->file_path;
+
+        return view('app.aspri.ttd-editor', compact('document', 'dirut', 'pendingValidators', 'dirutAlreadySigned', 'pdfSourcePath'));
     }
 
     public function saveTtd(Request $request, $id)
     {
         $request->validate([
             'signed_pdf' => 'required|file|mimes:pdf',
-            'qr_hash' => 'required|string',
+            'qr_hash' => 'nullable|string',
         ]);
 
         $doc = Document::with('latestVersion')
@@ -287,8 +296,9 @@ class SkController extends Controller
 
         $doc->update([
             'status' => 'DISETUJUI',
-            'qr_code_hash' => $request->qr_hash,
-            'signed_at' => now(),
+            // Kalau qr_code_hash sudah ada (dirut udah TTD duluan), jangan ditimpa
+            'qr_code_hash' => $doc->qr_code_hash ?? $request->qr_hash,
+            'signed_at' => $doc->signed_at ?? now(),
             'signed_file_path' => $signedRelativePath,
             'file_hash' => $fileHash,
         ]);

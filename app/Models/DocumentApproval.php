@@ -17,4 +17,9 @@ class DocumentApproval extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function signaturePlacement()
+    {
+        return $this->hasOne(SignaturePlacement::class);
+    }
 }

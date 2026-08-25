@@ -9,6 +9,7 @@ use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class SkController extends Controller
 {
@@ -56,6 +57,7 @@ class SkController extends Controller
         $request->validate([
             'signed_pdf' => 'required|file|mimes:pdf',
             'qr_hash' => 'required|string',
+            'placements' => 'nullable|string',
         ]);
 
         $doc = Document::with('latestVersion')->findOrFail($id);
@@ -63,6 +65,11 @@ class SkController extends Controller
         if ($doc->status !== 'SIAP_TTD') {
             return redirect()->back()->with('error', 'Dokumen belum mendapat persetujuan 100% dari Validator!');
         }
+
+        $belumDitempel = $doc->approvals()
+            ->where('need_sign', true)
+            ->whereDoesntHave('signaturePlacement')
+            ->exists();
 
         $signedFile = $request->file('signed_pdf');
         $safeDocNumber = Str::slug($doc->document_number);
@@ -73,32 +80,66 @@ class SkController extends Controller
         $fullPath = storage_path('app/public/' . $signedRelativePath);
         $fileHash = hash_file('sha256', $fullPath);
 
+        // Simpan posisi TTD dirut ke signature_placements
+        if ($request->filled('placements')) {
+            $placements = json_decode($request->placements, true) ?? [];
+            foreach ($placements as $p) {
+                \App\Models\SignaturePlacement::create([
+                    'document_id' => $id,
+                    'document_approval_id' => null,
+                    'user_id' => Auth::id(),
+                    'page_number' => $p['page_number'],
+                    'x' => $p['x'],
+                    'y' => $p['y'],
+                    'width' => $p['width'],
+                    'height' => $p['height'],
+                    'signature_path' => Auth::user()->signature_path,
+                ]);
+            }
+        }
+
         $doc->update([
-            'status' => 'DISETUJUI',
+            'status' => $belumDitempel ? 'DISETUJUI_TANPA_TTD' : 'DISETUJUI',
             'qr_code_hash' => $request->qr_hash,
             'signed_at' => now(),
             'signed_file_path' => $signedRelativePath,
             'file_hash' => $fileHash,
         ]);
 
-        // Kirim WA + FCM ke Administrator bahwa dokumen sudah selesai ditandatangani sepenuhnya
         $doc->load('user');
         if ($doc->user) {
-            $this->waService->sendWaNotifAspri($doc->user, $doc, 'SELESAI & TELAH DITANDATANGANI (Sah)');
-
-            $this->fcmService->sendToUser(
-                $doc->user,
-                'Dokumen Selesai Ditandatangani',
-                "Dokumen \"{$doc->title}\" telah sah ditandatangani oleh Direksi.",
-                [
-                    'document_id' => (string) $doc->id,
-                    'type' => 'selesai_ttd',
-                    'url' => route('aspri.detail', $doc->id),
-                ]
-            );
+            if ($belumDitempel) {
+                $this->waService->sendWaNotifAspri($doc->user, $doc, 'DISAHKAN — MENUNGGU PENEMPELAN TTD VALIDATOR');
+                $this->fcmService->sendToUser(
+                    $doc->user,
+                    'Dokumen Disahkan, Perlu Ditempel TTD Validator',
+                    "Dokumen \"{$doc->title}\" sudah ditandatangani Direksi, namun masih ada TTD Validator yang perlu Anda tempelkan.",
+                    [
+                        'document_id' => (string) $doc->id,
+                        'type' => 'perlu_ttd_aspri',
+                        'url' => route('aspri.detail', $doc->id),
+                    ]
+                );
+            } else {
+                $this->waService->sendWaNotifAspri($doc->user, $doc, 'SELESAI & TELAH DITANDATANGANI (Sah)');
+                $this->fcmService->sendToUser(
+                    $doc->user,
+                    'Dokumen Selesai Ditandatangani',
+                    "Dokumen \"{$doc->title}\" telah sah ditandatangani oleh Direksi.",
+                    [
+                        'document_id' => (string) $doc->id,
+                        'type' => 'selesai_ttd',
+                        'url' => route('aspri.detail', $doc->id),
+                    ]
+                );
+            }
         }
 
-        return redirect()->route('app.dirut.dashboard')->with('success', 'Dokumen SK berhasil ditandatangani dan disahkan!');
+        $successMsg = $belumDitempel
+            ? 'Dokumen berhasil ditandatangani. Masih ada TTD Validator yang perlu ditempelkan Admin.'
+            : 'Dokumen SK berhasil ditandatangani dan disahkan!';
+
+        return redirect()->route('app.dirut.dashboard')->with('success', $successMsg);
     }
 
     public function showSignaturePage()
@@ -148,10 +189,19 @@ class SkController extends Controller
 
     public function signWithoutSignature(Request $request, $id)
     {
-        $doc = Document::with('latestVersion')->findOrFail($id);
+        $doc = Document::with(['latestVersion', 'approvals'])->findOrFail($id);
 
         if ($doc->status !== 'SIAP_TTD') {
             return redirect()->back()->with('error', 'Dokumen belum mendapat persetujuan 100% dari Validator!');
+        }
+
+        // CEK TAMBAHAN: Pastikan tidak ada validator titip TTD yang belum diselesaikan admin
+        $hasUnfinishedDelegatedSignatures = $doc->approvals()
+            ->where('need_sign', true)
+            ->exists();
+
+        if ($hasUnfinishedDelegatedSignatures) {
+            return redirect()->back()->with('error', 'Masih ada validator yang menitipkan TTD dan belum diselesaikan oleh Admin!');
         }
 
         // Salin PDF asli (belum ada TTD) sebagai placeholder signed_file_path
@@ -186,7 +236,7 @@ class SkController extends Controller
                 [
                     'document_id' => (string) $doc->id,
                     'type' => 'perlu_ttd_aspri',
-                    'url' => route('aspri.detail', $doc->id), // sesuaikan kalau nanti ada route khusus
+                    'url' => route('aspri.detail', $doc->id),
                 ]
             );
         }

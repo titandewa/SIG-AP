@@ -122,6 +122,7 @@
 
                 <div class="space-y-2" id="signerSourceList">
                     <!-- Kartu TTD Dirut -->
+                    @if(!$dirutAlreadySigned)
                     <div class="drag-signature-source flex items-center gap-2 border border-slate-200 rounded-xl p-2 cursor-grab active:cursor-grabbing hover:border-emerald-300 hover:bg-emerald-50/50 transition select-none touch-none"
                         data-user-id="{{ $dirut->id ?? '' }}"
                         data-name="{{ $dirut->name ?? 'Direksi' }}"
@@ -134,6 +135,7 @@
                             <img src="{{ asset('storage/' . $dirut->signature_path) }}" class="h-6 object-contain" draggable="false">
                         </div>
                     </div>
+                    @endif
 
                     <!-- Kartu TTD petinggi/validator yang approve tanpa TTD -->
                     @isset($pendingValidators)
@@ -170,8 +172,8 @@
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
 
-        const pdfUrl = "{{ asset('storage/' . $document->latestVersion->file_path) }}";
-        const dirutUserId = "{{ $dirut->id ?? '' }}";
+        const pdfUrl = "{{ asset('storage/' . $pdfSourcePath) }}";
+        const dirutUserId = "{{ $dirutAlreadySigned ? '' : ($dirut->id ?? '') }}";
 
         let originalPdfBytes = null;
         let pdfDocInstance = null;

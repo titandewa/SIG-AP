@@ -8,6 +8,8 @@ use App\Http\Controllers\Petinggi\SkController as PetinggiSkController;
 use App\Http\Controllers\Dirut\SkController as DirutSkController;
 use App\Http\Controllers\PdfSignerController;
 use App\Http\Controllers\NotificationHistoryController;
+use App\Http\Controllers\Admin\AkunController;
+use App\Http\Controllers\Auth\ForcePasswordController;
 
 /*
 |--------------------------------------------------------------------------
@@ -87,6 +89,8 @@ Route::get('/force-logout', function () {
     return redirect('/');
 });
 
+Route::post('/reset-forced-password', [App\Http\Controllers\Auth\AuthenticatedSessionController::class, 'resetForced'])->name('password.reset-forced');
+
 Route::middleware(['auth'])->group(function () {
 
     Route::get('/dashboard', function () {
@@ -108,6 +112,10 @@ Route::middleware(['auth'])->group(function () {
             return redirect()->route('app.dirut.dashboard');
         }
 
+        if ($user->role === 'admin') {
+            return redirect()->route('app.admin.dashboard');
+        }
+
         return redirect()->route('login');
     })->name('dashboard');
 
@@ -115,6 +123,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/notifications/history', [App\Http\Controllers\NotificationHistoryController::class, 'index'])->name('notifications.history');
     Route::post('/notifications/{id}/read', [NotificationHistoryController::class, 'markRead'])->name('notifications.read');
     Route::post('/notifications/clear', [NotificationHistoryController::class, 'clearAll'])->name('notifications.clear');
+
     // Route khusus Aspri
     Route::middleware(['role:aspri'])->group(function () {
         Route::post('/app/aspri/revisi/{id}', [AspriSkController::class, 'uploadRevision'])->name('aspri.revisi');
@@ -150,6 +159,16 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/app/dirut/signature', [DirutSkController::class, 'saveSignature'])->name('dirut.signature.save');
         Route::get('/app/dirut/ttd/{id}', [DirutSkController::class, 'showTtdEditor'])->name('dirut.ttd.editor');
         Route::get('/app/dirut/riwayat', [DirutSkController::class, 'riwayat'])->name('dirut.riwayat');
+    });
+
+    // Route khusus Admin (manajemen akun)
+    Route::middleware(['role:admin'])->prefix('app/admin')->name('app.admin.')->group(function () {
+        Route::get('/dashboard', [AkunController::class, 'index'])->name('dashboard');
+        Route::post('/akun', [AkunController::class, 'store'])->name('akun.store');
+        Route::put('/akun/{user}', [AkunController::class, 'update'])->name('akun.update');
+        Route::delete('/akun/{user}', [AkunController::class, 'destroy'])->name('akun.destroy');
+        Route::post('/akun/{user}/reset-password', [AkunController::class, 'resetPassword'])->name('akun.reset-password');
+        Route::post('/akun/{user}/ttd', [AkunController::class, 'updateTtd'])->name('akun.ttd');
     });
 
 });

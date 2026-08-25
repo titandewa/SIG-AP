@@ -408,5 +408,13 @@ class DatabaseSeeder extends Seeder
             'role' => 'dirut',
             'password' => Hash::make('password'),
         ]);
+
+         User::create([
+            'name' => 'Super Admin',
+            'email' => 'superadmin@sigap.com',
+            'phone' => '082335813978',
+            'role' => 'admin',
+            'password' => Hash::make('password'),
+        ]);
     }
 }

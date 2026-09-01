@@ -1,3 +1,11 @@
+@php
+    $roleLabels = [
+        'aspri' => 'Administrator',
+        'petinggi' => 'Validator',
+        'dirut' => 'Direksi',
+    ];
+@endphp
+
 <x-app-shell title="SIGAP - Manajemen Akun" role="admin" roleColor="indigo" :sidebarItems="[
     ['label' => 'Manajemen Akun', 'url' => route('app.admin.dashboard'), 'icon' => 'fa-solid fa-users-gear'],
 ]">
@@ -28,9 +36,9 @@
         <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari nama atau email..." class="flex-1 border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-200">
         <select name="role" class="border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-200">
             <option value="">Semua Role</option>
-            <option value="aspri" {{ request('role') === 'aspri' ? 'selected' : '' }}>Aspri</option>
-            <option value="petinggi" {{ request('role') === 'petinggi' ? 'selected' : '' }}>Petinggi</option>
-            <option value="dirut" {{ request('role') === 'dirut' ? 'selected' : '' }}>Dirut</option>
+            <option value="aspri" {{ request('role') === 'aspri' ? 'selected' : '' }}>Administrator</option>
+            <option value="petinggi" {{ request('role') === 'petinggi' ? 'selected' : '' }}>Validator</option>
+            <option value="dirut" {{ request('role') === 'dirut' ? 'selected' : '' }}>Direksi</option>
         </select>
         <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition">
             <i class="fa-solid fa-magnifying-glass mr-1"></i> Cari
@@ -61,7 +69,7 @@
                             <td class="px-4 py-3 text-slate-600">{{ $item->email }}</td>
                             <td class="px-4 py-3 text-slate-600">{{ $item->phone ?? '-' }}</td>
                             <td class="px-4 py-3">
-                                <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-600 capitalize">{{ $item->role }}</span>
+                                <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-600">{{ $roleLabels[$item->role] ?? $item->role }}</span>
                             </td>
                             <td class="px-4 py-3">
                                 @if($item->signature_path)
@@ -148,9 +156,9 @@
                 <div>
                     <label class="text-xs font-semibold text-slate-600 mb-1 block">Role</label>
                     <select name="role" required class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-200">
-                        <option value="aspri">Aspri</option>
-                        <option value="petinggi">Petinggi</option>
-                        <option value="dirut">Dirut</option>
+                        <option value="aspri">Administrator</option>
+                        <option value="petinggi">Validator</option>
+                        <option value="dirut">Direksi</option>
                     </select>
                 </div>
                 <div>
@@ -187,9 +195,9 @@
                 <div>
                     <label class="text-xs font-semibold text-slate-600 mb-1 block">Role</label>
                     <select name="role" id="editRole" required class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-200">
-                        <option value="aspri">Aspri</option>
-                        <option value="petinggi">Petinggi</option>
-                        <option value="dirut">Dirut</option>
+                        <option value="aspri">Administrator</option>
+                        <option value="petinggi">Validator</option>
+                        <option value="dirut">Direksi</option>
                     </select>
                 </div>
                 <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl text-sm transition mt-2">Simpan Perubahan</button>

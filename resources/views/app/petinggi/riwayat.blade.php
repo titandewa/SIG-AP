@@ -41,11 +41,7 @@
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
                     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                         <div>
-                            <span class="font-bold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider
-                                {{ in_array($app->document->status, ['DISETUJUI', 'SIAP_TTD']) ? 'bg-emerald-100 text-emerald-800' : '' }}
-                                {{ $app->document->status === 'DITOLAK' ? 'bg-rose-100 text-rose-800' : '' }}">
-                                {{ $app->document->status }}
-                            </span>
+                            <x-status-badge :status="$app->document->status" />
                             <h3 class="font-bold text-slate-800 text-base mt-1">{{ $app->document->title }}</h3>
                             <p class="text-xs text-slate-500">
                                 No: {{ $app->document->document_number }} • Administrator: {{ $app->document->user->name ?? '-' }}

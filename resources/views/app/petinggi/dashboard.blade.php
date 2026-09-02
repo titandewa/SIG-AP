@@ -55,14 +55,7 @@
                         {{ $loop->first ? 'bg-[#4DA8FF]/10 border-[#4DA8FF]' : 'bg-[#021b41]/55 border-[#021b41] hover:border-[#4DA8FF]/60 hover:bg-[#4DA8FF]/5' }}">
                         <div class="flex justify-between items-start gap-2">
                             <p class="font-semibold text-white text-xs leading-snug line-clamp-2">{{ $app->document->title }}</p>
-                            <span class="shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded uppercase
-                                {{ $app->status === 'PENDING' ? 'bg-amber-500/20 text-amber-400' : '' }}
-                                {{ $app->status === 'TOLAK' ? 'bg-rose-500/20 text-rose-400' : '' }}
-                                {{ $app->status === 'TERIMA' ? 'bg-emerald-500/20 text-emerald-400' : '' }}
-                                {{ $app->status === 'DIBATALKAN' ? 'bg-slate-600/40 text-slate-400' : '' }}
-                                {{ $app->status === 'MENUNGGU' ? 'bg-slate-700 text-slate-300' : '' }}">
-                                {{ $app->status }}
-                            </span>
+                            <x-approval-status-badge :status="$app->status" />
                         </div>
                         <p class="text-[10px] text-slate-500 mt-1">No: {{ $app->document->document_number }}</p>
                         <p class="text-[10px] text-slate-500">{{ $app->document->user->name ?? 'ADMINISTRATOR' }}</p>
@@ -147,7 +140,7 @@
                                         @endif
                                     </span>
                                     <span class="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase text-[#4DA8FF] bg-[#4DA8FF]/10">
-                                        {{ $reviewer->status === 'MENUNGGU' ? 'Belum Menjawab' : $reviewer->status }}
+                                        {{ $reviewer->status === 'MENUNGGU' ? 'Menunggu' : $reviewer->status }}
                                     </span>
                                 </div>
                             @endforeach

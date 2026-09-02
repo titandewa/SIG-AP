@@ -21,14 +21,7 @@
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-4">
             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                 <div>
-                    <span class="font-bold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider
-                        {{ $document->status === 'DITINJAU' ? 'bg-amber-100 text-amber-800' : '' }}
-                        {{ $document->status === 'PENDING' ? 'bg-amber-100 text-amber-800' : '' }}
-                        {{ $document->status === 'SIAP_TTD' ? 'bg-blue-100 text-blue-800' : '' }}
-                        {{ $document->status === 'DISETUJUI' ? 'bg-emerald-100 text-emerald-800' : '' }}
-                        {{ $document->status === 'DITOLAK' ? 'bg-rose-100 text-rose-800' : '' }}">
-                        {{ $document->status }}
-                    </span>
+                    <x-status-badge :status="$document->status" />
                     <h2 class="font-bold text-slate-900 text-lg mt-1">{{ $document->title }}</h2>
                     <p class="text-xs text-slate-500 mt-1">
                         No: {{ $document->document_number }} •
@@ -127,26 +120,15 @@
                     <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border
                         {{ $approval->status === 'MENUNGGU' ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200' }}">
                         <div class="flex items-center gap-2">
-                            <div class="w-2 h-2 rounded-full
-                                {{ $approval->status === 'TERIMA' ? 'bg-emerald-500' : '' }}
-                                {{ $approval->status === 'MENUNGGU' ? 'bg-amber-500 animate-pulse' : '' }}
-                                {{ $approval->status === 'PENDING' ? 'bg-amber-500' : '' }}
-                                {{ $approval->status === 'TOLAK' ? 'bg-rose-500' : '' }}">
-                            </div>
+                            <x-approval-status-badge :status="$approval->status" :dot="true" />
                             <div>
                                 <p class="font-semibold text-slate-800 text-sm">{{ $approval->user->name ?? 'Validator' }}</p>
                                 <p class="text-[10px] {{ $approval->status === 'MENUNGGU' ? 'text-amber-600 font-medium' : 'text-slate-400' }}">
-                                    {{ $approval->status === 'MENUNGGU' ? 'Belum Menanggapi' : 'Terakhir update: '.$approval->updated_at->diffForHumans() }}
+                                    {{ $approval->status === 'MENUNGGU' ? 'Menunggu' : 'Terakhir update: '.$approval->updated_at->diffForHumans() }}
                                 </p>
                             </div>
                         </div>
-                        <span class="font-bold text-[10px] px-2 py-0.5 rounded
-                            {{ $approval->status === 'TERIMA' ? 'bg-emerald-50 text-emerald-700' : '' }}
-                            {{ $approval->status === 'MENUNGGU' ? 'bg-amber-100 text-amber-800' : '' }}
-                            {{ $approval->status === 'PENDING' ? 'bg-amber-100 text-amber-800' : '' }}
-                            {{ $approval->status === 'TOLAK' ? 'bg-rose-100 text-rose-800' : '' }}">
-                            {{ $approval->status }}
-                        </span>
+                        <x-approval-status-badge :status="$approval->status" />
                     </div>
                 @endforeach
             </div>

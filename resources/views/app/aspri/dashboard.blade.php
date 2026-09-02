@@ -59,24 +59,7 @@
                             <h3 class="font-bold text-slate-800 text-sm mt-0.5 break-words">{{ $document->title }}</h3>
                         </div>
                         <div class="self-start sm:self-center shrink-0">
-                            <span class="font-bold text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider inline-flex items-center
-                                {{ $document->status === 'DITINJAU' ? 'bg-amber-100 text-amber-800' : '' }}
-                                {{ $document->status === 'PENDING' ? 'bg-amber-100 text-amber-800' : '' }}
-                                {{ $document->status === 'SIAP_TTD' ? 'bg-blue-100 text-blue-800' : '' }}
-                                {{ $needsTtd ? 'bg-purple-100 text-purple-800' : '' }}">
-                                @if(in_array($document->status, ['DITINJAU', 'PENDING']))
-                                    <i class="fa-solid fa-spinner animate-spin mr-1"></i>
-                                @elseif($needsTtd)
-                                    <i class="fa-solid fa-pen-nib mr-1"></i>
-                                @endif
-                                @switch($document->status)
-                                    @case('DITINJAU') Ditinjau @break
-                                    @case('PENDING') Perlu Revisi @break
-                                    @case('SIAP_TTD') Siap TTD @break
-                                    @case('DISETUJUI_TANPA_TTD') Perlu Tempel TTD @break
-                                    @default {{ $document->status }}
-                                @endswitch
-                            </span>
+                            <x-status-badge :status="$document->status" />
                         </div>
                     </div>
                 </div>

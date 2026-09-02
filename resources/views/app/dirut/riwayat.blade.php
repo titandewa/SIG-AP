@@ -33,9 +33,7 @@
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
                     <div class="flex justify-between items-start">
                         <div>
-                            <span class="font-bold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider bg-emerald-100 text-emerald-800">
-                                DISETUJUI
-                            </span>
+                            <x-status-badge status="DISETUJUI" />
                             <h3 class="font-bold text-slate-800 text-base mt-1">{{ $document->title }}</h3>
                             <p class="text-xs text-slate-500">
                                 No: {{ $document->document_number }} • Administrator: {{ $document->user->name ?? '-' }}

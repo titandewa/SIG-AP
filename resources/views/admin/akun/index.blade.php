@@ -99,14 +99,14 @@
                                         <i class="fa-solid fa-signature text-xs"></i>
                                     </button>
 
-                                    <form action="{{ route('app.admin.akun.reset-password', $item->id) }}" method="POST" onsubmit="return confirm('Reset password {{ addslashes($item->name) }}? User akan diminta membuat password baru saat login berikutnya.')">
+                                    <form action="{{ route('app.admin.akun.reset-password', $item->id) }}" method="POST" onsubmit="event.preventDefault(); openConfirmModal(this, 'Reset password {{ addslashes($item->name) }}? User akan diminta membuat password baru saat login berikutnya.', 'indigo')">
                                         @csrf
                                         <button type="submit" class="w-8 h-8 flex items-center justify-center rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 transition" title="Reset Password">
                                             <i class="fa-solid fa-key text-xs"></i>
                                         </button>
                                     </form>
 
-                                    <form action="{{ route('app.admin.akun.destroy', $item->id) }}" method="POST" onsubmit="return confirm('Hapus akun {{ addslashes($item->name) }}? Tindakan ini tidak bisa dibatalkan.')">
+                                    <form action="{{ route('app.admin.akun.destroy', $item->id) }}" method="POST" onsubmit="event.preventDefault(); openConfirmModal(this, 'Hapus akun {{ addslashes($item->name) }}? Tindakan ini tidak bisa dibatalkan.', 'rose')">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition" title="Hapus">
@@ -240,6 +240,26 @@
         </div>
     </div>
 
+    {{-- ===================== MODAL CONFIRM (pengganti native confirm) ===================== --}}
+    <div id="modalConfirm" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 text-center">
+            <div id="confirmModalIcon" class="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-3">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <p id="confirmModalMessage" class="text-sm text-slate-700 mb-5"></p>
+            <div class="flex gap-3">
+                <button type="button" onclick="closeModal('modalConfirm')" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl text-sm transition">
+                    Batal
+                </button>
+                <button type="button" id="confirmModalSubmitBtn" onclick="submitConfirmedForm()" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2.5 rounded-xl text-sm transition">
+                    Ya, Lanjutkan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <x-alert-modal />
+
     <script src="{{ asset('js/signature-editor.js') }}"></script>
     <script>
         function openModal(id) {
@@ -256,6 +276,22 @@
             document.getElementById('editPhone').value = phone;
             document.getElementById('editRole').value = role;
             openModal('modalEdit');
+        }
+
+        let confirmModalForm = null;
+        function openConfirmModal(form, message, color = 'rose') {
+            confirmModalForm = form;
+            document.getElementById('confirmModalMessage').textContent = message;
+
+            const icon = document.getElementById('confirmModalIcon');
+            const btn = document.getElementById('confirmModalSubmitBtn');
+            icon.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 bg-${color}-50 text-${color}-500`;
+            btn.className = `flex-1 font-semibold py-2.5 rounded-xl text-sm transition text-white bg-${color}-600 hover:bg-${color}-700`;
+
+            openModal('modalConfirm');
+        }
+        function submitConfirmedForm() {
+            if (confirmModalForm) confirmModalForm.submit();
         }
 
         SignatureEditor.init('uploadPreviewCanvasAdmin');
@@ -291,7 +327,7 @@
         document.getElementById('ttdForm').addEventListener('submit', function (e) {
             if (!SignatureEditor.hasImage()) {
                 e.preventDefault();
-                alert('Silakan upload foto tanda tangan terlebih dahulu.');
+                showAlertModal('Silakan upload foto tanda tangan terlebih dahulu.');
                 return;
             }
             document.getElementById('signatureImageInputAdmin').value = document.getElementById('uploadPreviewCanvasAdmin').toDataURL('image/png');

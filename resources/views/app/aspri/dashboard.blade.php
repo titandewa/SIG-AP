@@ -261,7 +261,7 @@
                 fileInput.files = files;
                 showSelectedFile(files[0]);
             } else if (files.length > 0) {
-                alert('Hanya file PDF yang diperbolehkan.');
+                showAlertModal('Hanya file PDF yang diperbolehkan.');
             }
         });
 
@@ -281,7 +281,7 @@
             const checked = document.querySelectorAll('.petinggi-select:checked');
 
             if (checked.length === 0) {
-                alert('Pilih minimal 1 Validator sebelum mengajukan.');
+                showAlertModal('Pilih minimal 1 Validator sebelum mengajukan.');
                 return;
             }
 
@@ -349,5 +349,6 @@
             document.getElementById('petinggiNoResult').classList.toggle('hidden', anyVisible);
         }
     </script>
+    <x-alert-modal />
 
 </x-app-shell>

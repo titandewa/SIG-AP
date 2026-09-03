@@ -83,6 +83,8 @@
         </div>
     </div>
 
+    <x-alert-modal />
+
     <script src="{{ asset('js/signature-editor.js') }}"></script>
     <script>
         // ================== Tab switching ==================
@@ -201,14 +203,14 @@
                 blank.height = canvas.height;
                 if (canvas.toDataURL() === blank.toDataURL()) {
                     e.preventDefault();
-                    alert('Silakan gambar tanda tangan terlebih dahulu.');
+                    showAlertModal('Silakan gambar tanda tangan terlebih dahulu.');
                     return;
                 }
                 document.getElementById('signatureImageInput').value = canvas.toDataURL('image/png');
             } else {
                 if (!SignatureEditor.hasImage()) {
                     e.preventDefault();
-                    alert('Silakan upload foto tanda tangan terlebih dahulu.');
+                    showAlertModal('Silakan upload foto tanda tangan terlebih dahulu.');
                     return;
                 }
                 document.getElementById('signatureImageInput').value = document.getElementById('uploadPreviewCanvas').toDataURL('image/png');

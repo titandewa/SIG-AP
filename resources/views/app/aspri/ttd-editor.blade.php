@@ -418,8 +418,6 @@
             await renderPage(currentPage);
         }
 
-        // Setiap kartu TTD (dirut & petinggi lain) di-drag sebagai sumbernya masing-masing.
-        // Info signer (nama, user id, gambar TTD) dibaca dari data-attribute kartu yang di-drag.
         function initSignatureSourceDrag() {
             const sources = document.querySelectorAll('.drag-signature-source');
 
@@ -530,7 +528,6 @@
             img.draggable = false;
             wrapper.appendChild(img);
 
-            // Label nama pemilik TTD, biar aspri gampang bedain kalau ada lebih dari satu
             const nameLabel = document.createElement('span');
             nameLabel.className = 'absolute -top-5 left-0 text-[9px] font-bold text-indigo-600 bg-white px-1 rounded whitespace-nowrap';
             nameLabel.textContent = 'TTD ' + (signerName || '-');
@@ -672,9 +669,10 @@
                 }
             });
 
-            el.addEventListener('contextmenu', function (e) {
+            el.addEventListener('contextmenu', async function (e) {
                 e.preventDefault();
-                if (confirm('Hapus tanda tangan ini?')) {
+                const confirmed = await openConfirmModal('Hapus tanda tangan ini?');
+                if (confirmed) {
                     signatureInstances = signatureInstances.filter(i => i.element !== el);
                     el.remove();
                 }
@@ -698,7 +696,7 @@
 
         async function prosesTandaTangan() {
             if (signatureInstances.length === 0) {
-                alert('Tambahkan minimal satu tanda tangan terlebih dahulu.');
+                showAlertModal('Tambahkan minimal satu tanda tangan terlebih dahulu.');
                 return;
             }
 
@@ -780,13 +778,13 @@
                 } else if (response.ok) {
                     window.location.href = "{{ route('app.aspri.dashboard') }}";
                 } else {
-                    alert('Terjadi kesalahan saat menyimpan dokumen.');
+                    showAlertModal('Terjadi kesalahan saat menyimpan dokumen.');
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="fa-solid fa-stamp"></i> Tempel TTD & Sahkan';
                 }
             } catch (error) {
                 console.error(error);
-                alert('Terjadi kesalahan: ' + error.message);
+                showAlertModal('Terjadi kesalahan: ' + error.message);
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fa-solid fa-stamp"></i> Tempel TTD & Sahkan';
             }
@@ -818,5 +816,45 @@
 
         loadPdf();
         initSignatureSourceDrag();
+    </script>
+
+    <!-- Modal Confirm (pengganti native confirm, promise-based buat dipakai di fungsi async) -->
+    <div id="modalConfirm" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 text-center">
+            <div class="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-3">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <p id="confirmModalMessage" class="text-sm text-slate-700 mb-5"></p>
+            <div class="flex gap-3">
+                <button type="button" onclick="resolveConfirmModal(false)" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl text-sm transition">
+                    Batal
+                </button>
+                <button type="button" onclick="resolveConfirmModal(true)" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2.5 rounded-xl text-sm transition">
+                    Ya, Lanjutkan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <x-alert-modal />
+
+    <script>
+        let _confirmModalResolve = null;
+
+        function openConfirmModal(message) {
+            document.getElementById('confirmModalMessage').textContent = message;
+            document.getElementById('modalConfirm').classList.remove('hidden');
+            return new Promise((resolve) => {
+                _confirmModalResolve = resolve;
+            });
+        }
+
+        function resolveConfirmModal(result) {
+            document.getElementById('modalConfirm').classList.add('hidden');
+            if (_confirmModalResolve) {
+                _confirmModalResolve(result);
+                _confirmModalResolve = null;
+            }
+        }
     </script>
 </x-app-shell>

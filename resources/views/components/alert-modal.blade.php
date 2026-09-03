@@ -11,11 +11,20 @@
 </div>
 
 <script>
+    let _alertModalResolve = null;
+
     function showAlertModal(message) {
         document.getElementById('alertModalMessage').textContent = message;
         document.getElementById('alertModal').classList.remove('hidden');
+        return new Promise((resolve) => {
+            _alertModalResolve = resolve;
+        });
     }
     function closeAlertModal() {
         document.getElementById('alertModal').classList.add('hidden');
+        if (_alertModalResolve) {
+            _alertModalResolve();
+            _alertModalResolve = null;
+        }
     }
 </script>

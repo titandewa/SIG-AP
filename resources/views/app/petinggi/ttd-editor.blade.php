@@ -112,7 +112,7 @@
                     <a href="{{ route('app.petinggi.dashboard') }}" class="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-semibold rounded-lg transition">
                         Batalkan
                     </a>
-                    <button id="submitWithoutSignBtn" onclick="prosesSetujuiTanpaTtd()" class="px-4 sm:px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-lg transition shadow-md flex items-center gap-2">
+                    <button id="submitWithoutSignBtn" onclick="prosesSetujuiTanpaTtd()" class="hidden px-4 sm:px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-lg transition shadow-md flex items-center gap-2">
                         <i class="fa-solid fa-clock"></i> <span class="hidden sm:inline">Setujui Tanpa TTD</span><span class="inline sm:hidden">Tanpa TTD</span>
                     </button>
                     <button id="submitBtn" onclick="prosesSimpanTtd()" class="px-4 sm:px-6 py-2.5 bg-[#4DA8FF] hover:brightness-110 text-white text-sm font-bold rounded-lg transition shadow-md flex items-center gap-2">

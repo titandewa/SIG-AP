@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -12,6 +13,13 @@ use Illuminate\Validation\Rule;
 
 class AkunController extends Controller
 {
+    protected $waService;
+
+    public function __construct(WhatsAppNotificationService $waService)
+    {
+        $this->waService = $waService;
+    }
+
     public function index(Request $request)
     {
         $query = User::where('role', '!=', 'admin');
@@ -42,9 +50,12 @@ class AkunController extends Controller
             'password' => 'required|string|min:8',
         ]);
 
+        $plainPassword = $data['password'];
         $data['password'] = Hash::make($data['password']);
 
-        User::create($data);
+        $user = User::create($data);
+
+        $this->waService->sendWaRegistrasiAkun($user, $plainPassword);
 
         return back()->with('status', 'Akun berhasil ditambahkan.');
     }

@@ -134,4 +134,24 @@ class WhatsAppNotificationService
 
         return true;
     }
+    
+    public function sendWaRegistrasiAkun($user, $plainPassword)
+    {
+        if (!$user || !$user->phone) {
+            return;
+        }
+
+        $nomor = $this->formatNomorWA($user->phone);
+        $link = 'https://sigap.itbmp.cloud/login';
+
+        $pesan = "Pemberitahuan Registrasi Akun SIGAPP\n\n"
+            . "Selamat, akun SIGAPP Anda telah berhasil terdaftar dengan data berikut:\n\n"
+            . "Username: {$user->email}\n"
+            . "Password: {$plainPassword}\n\n"
+            . "Silakan melakukan login melalui aplikasi SIGAPP yang telah terinstal di perangkat Anda.\n"
+            . "{$link}\n\n"
+            . "Terima kasih.";
+
+        $this->kirim($nomor, $pesan);
+    }
 }

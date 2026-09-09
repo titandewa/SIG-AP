@@ -166,6 +166,30 @@
                         @enderror
                     </div>
 
+                    <div>
+                        <label class="flex items-center gap-2 cursor-pointer mb-2">
+                            <input type="checkbox" id="perluDireksiCheckbox" name="perlu_direksi" value="1" class="rounded text-indigo-600">
+                            <span class="text-xs font-semibold text-slate-600">Perlu Direksi?</span>
+                        </label>
+
+                        <div id="direksiSection" class="hidden">
+                            <label class="block text-xs font-semibold text-slate-600 mb-2">Pilih Direksi</label>
+                            <div id="direksiListBox" class="space-y-1.5 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs max-h-32 overflow-y-auto">
+                                @forelse($dirutList as $dirut)
+                                    <label class="flex items-center gap-2 cursor-pointer py-1 border-b border-slate-100 last:border-0">
+                                        <input type="radio" name="dirut_id" value="{{ $dirut->id }}" class="text-indigo-600">
+                                        <span>{{ $dirut->name }}</span>
+                                    </label>
+                                @empty
+                                    <p class="text-slate-400 italic">Belum ada user dengan role Direksi.</p>
+                                @endforelse
+                            </div>
+                            @error('dirut_id')
+                                <p class="text-[11px] text-rose-600 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+
                     <button type="submit" id="submitBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition shadow-md shadow-indigo-200 flex items-center justify-center gap-2">
                         <span id="submitBtnText"><i class="fa-solid fa-paper-plane mr-1"></i> Ajukan & Kirim WA Notif</span>
                         <span id="submitBtnLoading" class="hidden items-center gap-2">
@@ -226,6 +250,16 @@
             dropZone.classList.remove('border-emerald-400', 'bg-emerald-50/30');
         }
 
+        const perluDireksiCheckbox = document.getElementById('perluDireksiCheckbox');
+        const direksiSection = document.getElementById('direksiSection');
+
+        perluDireksiCheckbox.addEventListener('change', () => {
+            direksiSection.classList.toggle('hidden', !perluDireksiCheckbox.checked);
+            if (!perluDireksiCheckbox.checked) {
+                document.querySelectorAll('input[name="dirut_id"]').forEach(r => r.checked = false);
+            }
+        });
+
         dropZone.addEventListener('click', () => fileInput.click());
 
         fileInput.addEventListener('change', () => {
@@ -285,6 +319,11 @@
                 return;
             }
 
+            if (perluDireksiCheckbox.checked && !document.querySelector('input[name="dirut_id"]:checked')) {
+                showAlertModal('Pilih 1 Direksi, atau matikan centang "Perlu Direksi?" kalau SK ini tidak butuh direksi.');
+                return;
+            }
+
             // Bangun hidden input
             const container = document.getElementById('hiddenPetinggiInputs');
             container.innerHTML = '';
@@ -315,6 +354,17 @@
                     </span>`;
                 confirmList.appendChild(li);
             });
+
+            if (perluDireksiCheckbox.checked) {
+                const dirutRadio = document.querySelector('input[name="dirut_id"]:checked');
+                const dirutName = dirutRadio.closest('label').querySelector('span').textContent;
+
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-100';
+                li.innerHTML = `<span class="font-medium text-slate-700">${dirutName}</span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700">Direksi</span>`;
+                confirmList.appendChild(li);
+            }
 
             confirmModal.classList.remove('hidden');
         });

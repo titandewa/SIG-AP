@@ -30,6 +30,7 @@ class SkController extends Controller
     public function index()
     {
         $petinggiList = User::where('role', 'petinggi')->get();
+        $dirutList = User::where('role', 'dirut')->get();
 
         $documents = Document::with(['latestVersion', 'approvals.user', 'comments'])
             ->where('user_id', Auth::id())
@@ -37,7 +38,7 @@ class SkController extends Controller
             ->latest()
             ->get();
 
-        return view('app.aspri.dashboard', compact('petinggiList', 'documents'));
+        return view('app.aspri.dashboard', compact('petinggiList', 'dirutList', 'documents'));
     }
 
     public function detail($id)
@@ -115,9 +116,13 @@ class SkController extends Controller
             'document_number' => 'required|string|unique:documents,document_number',
             'pdf_file' => 'required|mimes:pdf|max:10240',
             'petinggi_ids' => 'required|array',
+            'perlu_direksi' => 'nullable|boolean',
+            'dirut_id' => 'required_if:perlu_direksi,1|nullable|exists:users,id',
         ]);
 
-        $document = DB::transaction(function () use ($request) {
+        $needDireksi = $request->boolean('perlu_direksi');
+
+        $document = DB::transaction(function () use ($request, $needDireksi) {
             $file = $request->file('pdf_file');
 
             $safeTitle = Str::slug($request->title);
@@ -129,6 +134,8 @@ class SkController extends Controller
                 'title' => $request->title,
                 'document_number' => $request->document_number,
                 'status' => 'DITINJAU',
+                'need_direksi' => $needDireksi,
+                'dirut_id' => $needDireksi ? $request->dirut_id : null,
             ]);
 
             DocumentVersion::create([
@@ -248,9 +255,12 @@ class SkController extends Controller
 
         $dirut = null;
         if (!$dirutAlreadySigned) {
-            $dirut = User::where('role', 'dirut')->whereNotNull('signature_path')->first();
+            $dirut = User::where('id', $document->dirut_id)
+                ->where('role', 'dirut')
+                ->whereNotNull('signature_path')
+                ->first();
             if (!$dirut) {
-                return redirect()->back()->with('error', 'Belum ada akun Direksi yang mengatur tanda tangan.');
+                return redirect()->back()->with('error', 'Direksi yang dipilih untuk dokumen ini belum mengatur tanda tangan.');
             }
         }
 

@@ -99,12 +99,14 @@
                                         <i class="fa-solid fa-signature text-xs"></i>
                                     </button>
 
+                                    {{-- FITUR RESET PASSWORD - nonaktif sementara, aktifkan lagi dengan menghapus komentar ini
                                     <form action="{{ route('app.admin.akun.reset-password', $item->id) }}" method="POST" onsubmit="event.preventDefault(); openConfirmModal(this, 'Reset password {{ addslashes($item->name) }}? User akan diminta membuat password baru saat login berikutnya.', 'indigo')">
                                         @csrf
                                         <button type="submit" class="w-8 h-8 flex items-center justify-center rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 transition" title="Reset Password">
                                             <i class="fa-solid fa-key text-xs"></i>
                                         </button>
                                     </form>
+                                    --}}
 
                                     <form action="{{ route('app.admin.akun.destroy', $item->id) }}" method="POST" onsubmit="event.preventDefault(); openConfirmModal(this, 'Hapus akun {{ addslashes($item->name) }}? Tindakan ini tidak bisa dibatalkan.', 'rose')">
                                         @csrf
@@ -200,6 +202,10 @@
                         <option value="dirut">Direksi</option>
                     </select>
                 </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 mb-1 block">Password Baru (kosongkan jika tidak ganti)</label>
+                    <input type="password" name="password" id="editPassword" minlength="8" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-200">
+                </div>
                 <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl text-sm transition mt-2">Simpan Perubahan</button>
             </form>
         </div>
@@ -275,6 +281,7 @@
             document.getElementById('editEmail').value = email;
             document.getElementById('editPhone').value = phone;
             document.getElementById('editRole').value = role;
+            document.getElementById('editPassword').value = '';
             openModal('modalEdit');
         }
 

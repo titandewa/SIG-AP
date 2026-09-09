@@ -67,7 +67,14 @@ class AkunController extends Controller
             'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
             'phone' => 'nullable|string|max:20',
             'role' => 'required|in:aspri,petinggi,dirut',
+            'password' => 'nullable|string|min:8',
         ]);
+
+        if (!empty($data['password'])) {
+            $data['password'] = Hash::make($data['password']);
+        } else {
+            unset($data['password']);
+        }
 
         $user->update($data);
 
@@ -85,14 +92,21 @@ class AkunController extends Controller
         return back()->with('status', 'Akun berhasil dihapus.');
     }
 
-    public function resetPassword(User $user)
+    public function resetPassword(Request $request, User $user)
     {
-        $tempPassword = Str::random(32);
+        $data = $request->validate([
+            'password' => 'required|string|min:8',
+        ]);
+
+        $plainPassword = $data['password'];
 
         $user->update([
-            'password' => Hash::make($tempPassword),
-            'force_password_reset' => true,
+            'password' => Hash::make($plainPassword),
+            // 'force_password_reset' => true, // aktifkan kalau mau user wajib ganti password sendiri saat login berikutnya
+            'force_password_reset' => false,
         ]);
+
+        $this->waService->sendWaRegistrasiAkun($user, $plainPassword);
 
         return back()->with('status', "Password {$user->name} berhasil direset.");
     }

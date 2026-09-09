@@ -169,6 +169,7 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/akun/{user}', [AkunController::class, 'destroy'])->name('akun.destroy');
         Route::post('/akun/{user}/reset-password', [AkunController::class, 'resetPassword'])->name('akun.reset-password');
         Route::post('/akun/{user}/ttd', [AkunController::class, 'updateTtd'])->name('akun.ttd');
+        Route::get('/activity-logs', [AkunController::class, 'activityLogs'])->name('activity-logs');
     });
 
 });

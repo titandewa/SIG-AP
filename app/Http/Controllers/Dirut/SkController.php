@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use App\Services\ActivityLogger;
 
 class SkController extends Controller
 {
@@ -106,6 +107,12 @@ class SkController extends Controller
             'signed_file_path' => $signedRelativePath,
             'file_hash' => $fileHash,
         ]);
+
+        ActivityLogger::log(
+            action: 'tanda_tangan',
+            description: Auth::user()->name . " (Direksi) menandatangani SK \"{$doc->title}\"",
+            documentId: $doc->id
+        );
 
         $doc->load('user');
         if ($doc->user) {
@@ -215,6 +222,12 @@ class SkController extends Controller
             'signed_file_path' => $signedRelativePath,
             'file_hash' => $fileHash,
         ]);
+
+        ActivityLogger::log(
+            action: 'sahkan_tanpa_ttd',
+            description: Auth::user()->name . " (Direksi) mengesahkan SK \"{$doc->title}\" tanpa tanda tangan",
+            documentId: $doc->id
+        );
 
         // Notif ke aspri: dokumen sah, tapi TTD belum ditempel — perlu aspri lengkapi
         $doc->load('user');

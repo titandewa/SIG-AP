@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Services\ActivityLogger;
 
 class SkController extends Controller
 {
@@ -153,6 +154,16 @@ class SkController extends Controller
                     'need_sign' => $request->input("need_sign.$petinggiId", 0),
                 ]);
             }
+
+            // Log dipanggil SEKALI, setelah semua approval selesai dibuat
+            $validatorNames = $document->approvals()->with('user')->get()->pluck('user.name')->join(', ');
+
+            ActivityLogger::log(
+                action: 'kirim_sk',
+                description: Auth::user()->name . " (Admin) mengirim SK \"{$document->title}\" kepada Validator: {$validatorNames}",
+                documentId: $document->id,
+                meta: ['validators' => $document->approvals()->pluck('user_id')]
+            );
 
             return $document;
         });

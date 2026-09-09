@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\SignaturePlacement;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\ActivityLogger;
 
 class SkController extends Controller
 {
@@ -117,6 +118,13 @@ class SkController extends Controller
                 ->where('status', 'MENUNGGU')
                 ->update(['status' => 'DIBATALKAN']);
 
+            ActivityLogger::log(
+                action: 'tolak',
+                description: Auth::user()->name . " (Validator) menolak SK \"{$doc->title}\"" . ($request->filled('comment') ? ": {$request->comment}" : ''),
+                documentId: $doc->id,
+                meta: ['comment' => $request->comment ?? null]
+            );
+
             if ($doc->user) {
                 $this->waService->sendWaNotifAspri($doc->user, $doc, 'DITOLAK oleh Validator');
                 $this->fcmService->sendToUser(
@@ -133,6 +141,13 @@ class SkController extends Controller
         } elseif ($request->status === 'PENDING') {
             $doc->update(['status' => 'PENDING']);
 
+            ActivityLogger::log(
+                action: 'revisi',
+                description: Auth::user()->name . " (Validator) meminta revisi SK \"{$doc->title}\"" . ($request->filled('comment') ? ": {$request->comment}" : ''),
+                documentId: $doc->id,
+                meta: ['comment' => $request->comment ?? null]
+            );
+
             if ($doc->user) {
                 $this->waService->sendWaNotifAspri($doc->user, $doc, 'PENDING / PERLU REVISI');
                 $this->fcmService->sendToUser(
@@ -148,6 +163,12 @@ class SkController extends Controller
             }
         } else {
             // status TERIMA dan need_sign = false
+            ActivityLogger::log(
+                action: 'setuju',
+                description: Auth::user()->name . " (Validator) menyetujui SK \"{$doc->title}\"",
+                documentId: $doc->id
+            );
+
             $this->finalizeTerima($doc);
         }
 
@@ -267,6 +288,12 @@ class SkController extends Controller
 
         $doc = Document::with(['approvals', 'user'])->findOrFail($id);
 
+        ActivityLogger::log(
+            action: 'setuju_ttd',
+            description: Auth::user()->name . " (Validator) menyetujui dan menandatangani SK \"{$doc->title}\"",
+            documentId: $doc->id
+        );
+
         // Simpan PDF hasil flatten dari browser dulu (sementara), baru dipakai kalau ini penyelesaian
         $signedFile = $request->file('signed_pdf');
         $safeDocNumber = Str::slug($doc->document_number);
@@ -334,6 +361,12 @@ class SkController extends Controller
         $approval->update(['status' => 'TERIMA']);
 
         $doc = Document::with(['approvals', 'user'])->findOrFail($id);
+
+        ActivityLogger::log(
+            action: 'setuju_tanpa_ttd',
+            description: Auth::user()->name . " (Validator) menyetujui SK \"{$doc->title}\" dan menitipkan TTD ke Admin",
+            documentId: $doc->id
+        );
 
         $this->finalizeTerima($doc);
 

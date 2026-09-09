@@ -131,4 +131,37 @@ class AkunController extends Controller
 
         return back()->with('status', 'Tanda tangan berhasil diperbarui.');
     }
+
+    public function activityLogs(Request $request)
+    {
+        $query = \App\Models\ActivityLog::with(['actor', 'document'])->latest();
+
+        if ($request->filled('role')) {
+            $query->where('actor_role', $request->role);
+        }
+
+        if ($request->filled('action')) {
+            $query->where('action', $request->action);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('description', 'like', "%{$search}%")
+                ->orWhereHas('actor', fn($q2) => $q2->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        $logs = $query->paginate(25)->withQueryString();
+
+        return view('admin.activity-logs', compact('logs'));
+    }
 }

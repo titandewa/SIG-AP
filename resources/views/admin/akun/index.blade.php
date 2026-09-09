@@ -8,6 +8,7 @@
 
 <x-app-shell title="SIGAP - Manajemen Akun" role="admin" roleColor="indigo" :sidebarItems="[
     ['label' => 'Manajemen Akun', 'url' => route('app.admin.dashboard'), 'icon' => 'fa-solid fa-users-gear'],
+    ['label' => 'Log Aktivitas', 'url' => route('app.admin.activity-logs'), 'icon' => 'fa-solid fa-clock-rotate-left'],
 ]">
 
     @if(session('status'))

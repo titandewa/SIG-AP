@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\SignaturePlacement;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class SkController extends Controller
 {
@@ -85,11 +86,11 @@ class SkController extends Controller
             ->firstOrFail();
 
         if ($approval->document->status !== 'DITINJAU') {
-            return redirect()->back()->with('error', 'Dokumen ini sudah tidak dalam status ditinjau, keputusan tidak disimpan.');
+            return redirect()->route('app.petinggi.dashboard')->with('error', 'Dokumen ini sudah tidak dalam status ditinjau, keputusan tidak disimpan.');
         }
 
         if ($approval->status !== 'MENUNGGU') {
-            return redirect()->back()->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
+            return redirect()->route('app.petinggi.dashboard')->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
         }
 
         // Simpan komentar dulu (kalau ada), sebelum redirect ke TTD
@@ -150,31 +151,55 @@ class SkController extends Controller
             $this->finalizeTerima($doc);
         }
 
-        return redirect()->back()->with('success', 'Keputusan Anda berhasil disimpan!');
+        return redirect()->route('app.petinggi.dashboard')->with('success', 'Keputusan Anda berhasil disimpan!');
     }
 
-    private function finalizeTerima(Document $doc)
+    private function finalizeTerima(Document $doc, ?string $signedPdfPath = null)
     {
         $totalApprovals = $doc->approvals->count();
         $acceptedApprovals = $doc->approvals->where('status', 'TERIMA')->count();
 
-        if ($totalApprovals === $acceptedApprovals) {
-            $doc->update(['status' => 'SIAP_TTD']);
-
-            $dirut = User::where('role', 'dirut')->first();
-            if ($dirut) {
-                $this->waService->sendWaNotifDirut($dirut, $doc);
-                $this->fcmService->sendToUser(
-                    $dirut,
-                    'Dokumen Siap TTD',
-                    "Dokumen \"{$doc->title}\" telah disetujui semua Validator dan siap ditandatangani.",
-                    [
-                        'document_id' => (string) $doc->id,
-                        'type' => 'siap_ttd',
-                        'url' => route('dirut.ttd.editor', $doc->id),
-                    ]
-                );
+        if ($totalApprovals !== $acceptedApprovals) {
+            // Belum selesai semua, file PDF sementara (kalau ada) tidak dipakai
+            if ($signedPdfPath) {
+                Storage::disk('public')->delete($signedPdfPath);
             }
+            return;
+        }
+
+        if (!$doc->need_direksi) {
+            $fullPath = storage_path('app/public/' . $signedPdfPath);
+            $fileHash = hash_file('sha256', $fullPath);
+
+            $doc->update([
+                'status' => 'DISETUJUI',
+                'signed_file_path' => $signedPdfPath,
+                'signed_at' => now(),
+                'file_hash' => $fileHash,
+            ]);
+            return;
+        }
+
+        // Butuh direksi, file sementara tadi tidak dipakai (dirut yang flatten ulang nanti)
+        if ($signedPdfPath) {
+            Storage::disk('public')->delete($signedPdfPath);
+        }
+
+        $doc->update(['status' => 'SIAP_TTD']);
+
+        $dirut = User::where('id', $doc->dirut_id)->where('role', 'dirut')->first();
+        if ($dirut) {
+            $this->waService->sendWaNotifDirut($dirut, $doc);
+            $this->fcmService->sendToUser(
+                $dirut,
+                'Dokumen Siap TTD',
+                "Dokumen \"{$doc->title}\" telah disetujui semua Validator dan siap ditandatangani.",
+                [
+                    'document_id' => (string) $doc->id,
+                    'type' => 'siap_ttd',
+                    'url' => route('dirut.ttd.editor', $doc->id),
+                ]
+            );
         }
     }
 
@@ -185,11 +210,11 @@ class SkController extends Controller
             ->firstOrFail();
 
         if (!$approval->need_sign) {
-            return redirect()->back()->with('error', 'Kamu tidak butuh menempelkan TTD untuk dokumen ini.');
+            return redirect()->route('app.petinggi.dashboard')->with('error', 'Kamu tidak butuh menempelkan TTD untuk dokumen ini.');
         }
 
         if ($approval->status !== 'MENUNGGU') {
-            return redirect()->back()->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
+            return redirect()->route('app.petinggi.dashboard')->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
         }
 
         if (!Auth::user()->signature_path) {
@@ -204,13 +229,11 @@ class SkController extends Controller
     public function saveSignaturePlacement(Request $request, $id)
     {
         $request->validate([
-            'placements' => 'required|array|min:1',
-            'placements.*.page_number' => 'required|integer|min:1',
-            'placements.*.x' => 'required|numeric',
-            'placements.*.y' => 'required|numeric',
-            'placements.*.width' => 'required|numeric',
-            'placements.*.height' => 'required|numeric',
+            'placements' => 'required|string',
+            'signed_pdf' => 'required|file|mimes:pdf',
         ]);
+
+        $placements = json_decode($request->placements, true) ?? [];
 
         $userId = Auth::id();
 
@@ -219,14 +242,14 @@ class SkController extends Controller
             ->firstOrFail();
 
         if ($approval->document->status !== 'DITINJAU') {
-            return redirect()->back()->with('error', 'Dokumen ini sudah tidak dalam status ditinjau, keputusan tidak disimpan.');
+            return redirect()->route('app.petinggi.dashboard')->with('error', 'Dokumen ini sudah tidak dalam status ditinjau, keputusan tidak disimpan.');
         }
 
         if ($approval->status !== 'MENUNGGU') {
-            return redirect()->back()->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
+            return redirect()->route('app.petinggi.dashboard')->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
         }
 
-        foreach ($request->placements as $p) {
+        foreach ($placements as $p) {
             SignaturePlacement::create([
                 'document_id' => $id,
                 'document_approval_id' => $approval->id,
@@ -243,7 +266,15 @@ class SkController extends Controller
         $approval->update(['status' => 'TERIMA']);
 
         $doc = Document::with(['approvals', 'user'])->findOrFail($id);
-        $this->finalizeTerima($doc);
+
+        // Simpan PDF hasil flatten dari browser dulu (sementara), baru dipakai kalau ini penyelesaian
+        $signedFile = $request->file('signed_pdf');
+        $safeDocNumber = Str::slug($doc->document_number);
+        $tempSignedName = 'signed_' . $safeDocNumber . '_' . time() . '.pdf';
+        $tempSignedPath = 'documents/signed/' . $tempSignedName;
+        Storage::disk('public')->put($tempSignedPath, file_get_contents($signedFile));
+
+        $this->finalizeTerima($doc, $tempSignedPath);
 
         return redirect()->route('app.petinggi.dashboard')->with('success', 'Tanda tangan berhasil ditempatkan dan keputusan disimpan!');
     }
@@ -290,14 +321,14 @@ class SkController extends Controller
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => 'Dokumen ini sudah tidak dalam status ditinjau, keputusan tidak disimpan.'], 422);
             }
-            return redirect()->back()->with('error', 'Dokumen ini sudah tidak dalam status ditinjau, keputusan tidak disimpan.');
+            return redirect()->route('app.petinggi.dashboard')->with('error', 'Dokumen ini sudah tidak dalam status ditinjau, keputusan tidak disimpan.');
         }
 
         if ($approval->status !== 'MENUNGGU') {
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.'], 422);
             }
-            return redirect()->back()->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
+            return redirect()->route('app.petinggi.dashboard')->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
         }
 
         $approval->update(['status' => 'TERIMA']);
@@ -314,6 +345,6 @@ class SkController extends Controller
             ]);
         }
 
-        return redirect()->back()->with('success', 'Dokumen disetujui tanpa tanda tangan. Admin akan menempelkan TTD Anda nanti.');
+        return redirect()->route('app.petinggi.dashboard')->with('success', 'Dokumen disetujui tanpa tanda tangan. Admin akan menempelkan TTD Anda nanti.');
     }
 }

@@ -154,6 +154,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.27/dist/interact.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script>
         if (window.pdfjsLib) {
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -693,13 +694,43 @@
                     });
                 }
 
+                // === Flatten PDF pakai pdf-lib: gabung TTD sendiri + TTD validator lain yang sudah ada ===
+                const { PDFDocument } = PDFLib;
+                const pdfDoc = await PDFDocument.load(originalPdfBytes.slice(0));
+
+                async function embedSignatureOnPdf(pdfDoc, imgUrl, pageNumber, x, y, width, height) {
+                    const imgBytes = await fetch(imgUrl).then(r => r.arrayBuffer());
+                    let img;
+                    try {
+                        img = await pdfDoc.embedPng(imgBytes);
+                    } catch {
+                        img = await pdfDoc.embedJpg(imgBytes);
+                    }
+                    const page = pdfDoc.getPage(pageNumber - 1);
+                    page.drawImage(img, { x, y, width, height });
+                }
+
+                // Tempel TTD validator lain yang sudah lebih dulu tanda tangan
+                for (const vp of validatorPlacements) {
+                    await embedSignatureOnPdf(pdfDoc, vp.signature_path, vp.page, vp.x, vp.y, vp.width, vp.height);
+                }
+
+                // Tempel TTD milik sendiri
+                for (const p of placements) {
+                    await embedSignatureOnPdf(pdfDoc, signatureImageSrc, p.page_number, p.x, p.y, p.width, p.height);
+                }
+
+                const flattenedBytes = await pdfDoc.save();
+                const signedBlob = new Blob([flattenedBytes], { type: 'application/pdf' });
+
+                const formData = new FormData();
+                formData.append('placements', JSON.stringify(placements));
+                formData.append('signed_pdf', signedBlob, 'signed.pdf');
+
                 const response = await fetch("{{ route('petinggi.ttd.save', $document->id) }}", {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    },
-                    body: JSON.stringify({ placements }),
+                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    body: formData,
                 });
 
                 if (response.redirected) {
@@ -718,7 +749,7 @@
                 submitBtn.innerHTML = '<i class="fa-solid fa-stamp"></i> Setujui & Simpan TTD';
             }
         }
-
+        
         async function prosesSetujuiTanpaTtd() {
             const confirmed = await openConfirmModal('Dokumen akan disetujui TANPA tanda tangan Anda. Admin akan menempelkan TTD Anda nanti. Lanjutkan?');
             if (!confirmed) {

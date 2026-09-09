@@ -27,6 +27,7 @@ class SkController extends Controller
     {
         $readyToSignDocuments = Document::with(['latestVersion', 'approvals.user'])
             ->where('status', 'SIAP_TTD')
+            ->where('dirut_id', Auth::id())
             ->latest()
             ->get();
 
@@ -63,7 +64,7 @@ class SkController extends Controller
         $doc = Document::with('latestVersion')->findOrFail($id);
 
         if ($doc->status !== 'SIAP_TTD') {
-            return redirect()->back()->with('error', 'Dokumen belum mendapat persetujuan 100% dari Validator!');
+            return redirect()->route('app.dirut.dashboard')->with('error', 'Dokumen belum mendapat persetujuan 100% dari Validator!');
         }
 
         $belumDitempel = $doc->approvals()
@@ -177,7 +178,7 @@ class SkController extends Controller
         $document = Document::with(['latestVersion', 'signaturePlacements.user'])->findOrFail($id);
 
         if ($document->status !== 'SIAP_TTD') {
-            return redirect()->back()->with('error', 'Dokumen ini belum siap untuk ditandatangani.');
+            return redirect()->route('app.dirut.dashboard')->with('error', 'Dokumen ini belum siap untuk ditandatangani.');
         }
 
         if (!Auth::user()->signature_path) {
@@ -189,19 +190,10 @@ class SkController extends Controller
 
     public function signWithoutSignature(Request $request, $id)
     {
-        $doc = Document::with(['latestVersion', 'approvals'])->findOrFail($id);
+        $doc = Document::with('latestVersion')->findOrFail($id);
 
         if ($doc->status !== 'SIAP_TTD') {
             return redirect()->back()->with('error', 'Dokumen belum mendapat persetujuan 100% dari Validator!');
-        }
-
-        // CEK TAMBAHAN: Pastikan tidak ada validator titip TTD yang belum diselesaikan admin
-        $hasUnfinishedDelegatedSignatures = $doc->approvals()
-            ->where('need_sign', true)
-            ->exists();
-
-        if ($hasUnfinishedDelegatedSignatures) {
-            return redirect()->back()->with('error', 'Masih ada validator yang menitipkan TTD dan belum diselesaikan oleh Admin!');
         }
 
         // Salin PDF asli (belum ada TTD) sebagai placeholder signed_file_path
@@ -236,7 +228,7 @@ class SkController extends Controller
                 [
                     'document_id' => (string) $doc->id,
                     'type' => 'perlu_ttd_aspri',
-                    'url' => route('aspri.detail', $doc->id),
+                    'url' => route('aspri.detail', $doc->id), // sesuaikan kalau nanti ada route khusus
                 ]
             );
         }

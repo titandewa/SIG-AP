@@ -274,7 +274,7 @@ class SkController extends Controller
             ->get();
 
         // Kalau dirut sudah TTD, mulai dari file yang SUDAH ada TTD dirut+QR.
-        // Kalau belum, mulai dari file asli.
+        // Kalau belum, mulai dari file asli
         $pdfSourcePath = $dirutAlreadySigned ? $document->signed_file_path : $document->latestVersion->file_path;
 
         return view('app.aspri.ttd-editor', compact('document', 'dirut', 'pendingValidators', 'dirutAlreadySigned', 'pdfSourcePath'));

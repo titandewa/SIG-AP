@@ -86,8 +86,6 @@
                                 <input type="checkbox" name="remember" class="h-4 w-4 rounded border-slate-300 text-[#0D1B3D] focus:ring-[#4DA8FF]">
                                 <span>Ingat saya</span>
                             </label>
-
-                            <a href="{{ route('password.request') }}" class="font-semibold text-[#0D1B3D] transition hover:text-[#4DA8FF]">Lupa password?</a>
                         </div>
 
                         <div class="rounded-2xl border border-blue-100 bg-[linear-gradient(180deg,_#f7fbff_0%,_#edf4ff_100%)] px-4 py-4 shadow-[0_10px_24px_rgba(77,168,255,0.06)]">

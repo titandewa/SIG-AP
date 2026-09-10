@@ -333,7 +333,7 @@ class SkController extends Controller
 
         $user->update(['signature_path' => $fileName]);
 
-        return redirect()->back()->with('success', 'Tanda tangan berhasil disimpan!');
+        return redirect()->route('app.petinggi.dashboard')->with('success', 'Tanda tangan berhasil disimpan!');
     }
 
     public function signWithoutSignature(Request $request, $id)

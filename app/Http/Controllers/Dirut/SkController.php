@@ -177,7 +177,7 @@ class SkController extends Controller
 
         $user->update(['signature_path' => $fileName]);
 
-        return redirect()->back()->with('success', 'Tanda tangan berhasil disimpan!');
+        return redirect()->route('app.dirut.dashboard')->with('success', 'Tanda tangan berhasil disimpan!');
     }
 
     public function showTtdEditor($id)

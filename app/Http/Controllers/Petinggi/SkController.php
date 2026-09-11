@@ -15,6 +15,7 @@ use App\Models\SignaturePlacement;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Services\ActivityLogger;
+use App\Models\NotificationHistory;
 
 class SkController extends Controller
 {
@@ -196,6 +197,12 @@ class SkController extends Controller
             return;
         }
 
+        // Kalau tidak ada file hasil tempel TTD sama sekali (tidak ada Validator yang need_sign),
+        // pakai dokumen asli dari Admin sebagai file final.
+        if (!$signedPdfPath) {
+            $signedPdfPath = $doc->latestVersion->file_path;
+        }
+
         if (!$doc->need_direksi) {
             $fullPath = storage_path('app/public/' . $signedPdfPath);
             $fileHash = hash_file('sha256', $fullPath);
@@ -206,11 +213,13 @@ class SkController extends Controller
                 'signed_at' => now(),
                 'file_hash' => $fileHash,
             ]);
+
+            NotificationHistory::where('data->document_id', (string) $doc->id)->delete();
             return;
         }
 
         // Butuh direksi, file sementara tadi tidak dipakai (dirut yang flatten ulang nanti)
-        if ($signedPdfPath) {
+        if ($signedPdfPath !== $doc->latestVersion->file_path) {
             Storage::disk('public')->delete($signedPdfPath);
         }
 

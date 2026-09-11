@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Services\ActivityLogger;
+use App\Models\NotificationHistory;
 
 class SkController extends Controller
 {
@@ -321,12 +322,13 @@ class SkController extends Controller
 
         $doc->update([
             'status' => 'DISETUJUI',
-            // Kalau qr_code_hash sudah ada (dirut udah TTD duluan), jangan ditimpa
             'qr_code_hash' => $doc->qr_code_hash ?? $request->qr_hash,
             'signed_at' => $doc->signed_at ?? now(),
             'signed_file_path' => $signedRelativePath,
             'file_hash' => $fileHash,
         ]);
+
+        NotificationHistory::where('data->document_id', (string) $doc->id)->delete();
 
         return redirect()->route('app.aspri.dashboard')->with('success', 'Tanda tangan berhasil ditempel, dokumen kini sah sepenuhnya!');
     }

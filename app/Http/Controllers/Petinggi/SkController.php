@@ -28,7 +28,7 @@ class SkController extends Controller
     }
 
     // Dashboard Validator Real
-    public function index()
+    public function index(Request $request)
     {
         $approvals = DocumentApproval::with([
                 'document.latestVersion',
@@ -50,7 +50,9 @@ class SkController extends Controller
             ->orderBy('created_at', 'asc')
             ->get();
 
-        return view('app.petinggi.dashboard', compact('approvals'));
+        $focusDocId = $request->query('doc');
+
+        return view('app.petinggi.dashboard', compact('approvals', 'focusDocId'));
     }
 
     public function riwayat(Request $request)

@@ -181,7 +181,7 @@ class SkController extends Controller
                     [
                         'document_id' => (string) $document->id,
                         'type' => 'pengajuan_baru',
-                        'url' => route('app.petinggi.dashboard'),
+                        'url' => route('app.petinggi.dashboard', ['doc' => $document->id]),
                     ]
                 );
             }
@@ -244,7 +244,11 @@ class SkController extends Controller
                     $approval->user,
                     'Revisi SK Diunggah',
                     "Administrator telah mengunggah revisi dokumen \"{$document->title}\", perlu ditinjau ulang.",
-                    ['document_id' => (string) $document->id, 'type' => 'revisi_diunggah']
+                    [
+                        'document_id' => (string) $document->id,
+                        'type' => 'revisi_diunggah',
+                        'url' => route('app.petinggi.dashboard', ['doc' => $document->id]),
+                    ]
                 );
             }
         }

@@ -286,6 +286,8 @@
         }
     }
 
+    let currentRenderTask = null;
+
     async function renderPreviewPage() {
         if (!previewPdfDoc) return;
         const page = await previewPdfDoc.getPage(previewCurrentPage);
@@ -307,7 +309,17 @@
         canvas.style.height = viewport.height + 'px';
         ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 
-        await page.render({ canvasContext: ctx, viewport }).promise;
+        if (currentRenderTask) {
+            currentRenderTask.cancel();
+        }
+        currentRenderTask = page.render({ canvasContext: ctx, viewport });
+
+        try {
+            await currentRenderTask.promise;
+        } catch (e) {
+            if (e && e.name === 'RenderingCancelledException') return;
+            throw e;
+        }
 
         const pageInfo = document.getElementById('previewPageInfo');
         if (pageInfo) pageInfo.textContent = previewCurrentPage + ' / ' + previewTotalPages;
@@ -392,6 +404,16 @@
     if (reviewDocuments.length > 0) {
         populateVersionDropdown(reviewDocuments[0]);
         loadPreviewPdf(reviewDocuments[0].file_url);
+
+        const focusDocId = @json($focusDocId ?? null);
+        const focusDoc = focusDocId ? reviewDocuments.find(d => d.id === parseInt(focusDocId)) : null;
+
+        if (focusDoc) {
+            selectDocument(focusDoc.id);
+        } else if (reviewDocuments.length > 0) {
+            populateVersionDropdown(reviewDocuments[0]);
+            loadPreviewPdf(reviewDocuments[0].file_url);
+        }
     }
 </script>
 

@@ -215,6 +215,21 @@ class SkController extends Controller
             ]);
 
             NotificationHistory::where('data->document_id', (string) $doc->id)->delete();
+
+            if ($doc->user) {
+                $this->waService->sendWaNotifAspri($doc->user, $doc, 'DISETUJUI');
+                $this->fcmService->sendToUser(
+                    $doc->user,
+                    'Dokumen Disetujui',
+                    "Dokumen \"{$doc->title}\" telah disetujui oleh semua Validator.",
+                    [
+                        'document_id' => (string) $doc->id,
+                        'type' => 'disetujui',
+                        'url' => route('aspri.detail', $doc->id),
+                    ]
+                );
+            }
+
             return;
         }
 

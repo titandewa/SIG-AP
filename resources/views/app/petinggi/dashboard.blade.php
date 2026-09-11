@@ -41,7 +41,7 @@
 
         <!-- Sidebar Kiri: List Dokumen (tetap drawer di HP) -->
         <aside id="docListSidebar"
-            class="hidden lg:flex lg:flex-col fixed lg:static inset-y-0 left-0 z-30 w-72 bg-[#021b41] border-r border-[#021b41] shrink-0 shadow-xl lg:shadow-none lg:h-full lg:overflow-hidden">
+            class="hidden lg:flex flex flex-col fixed lg:static inset-y-0 left-0 z-30 w-72 bg-[#021b41] border-r border-[#021b41] shrink-0 shadow-xl lg:shadow-none lg:h-full lg:overflow-hidden">
             <div class="flex justify-between items-center p-4 border-b border-[#021b41] lg:hidden">
                 <span class="text-white font-bold text-sm">Daftar Dokumen</span>
                 <button onclick="closeAllPanels()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
@@ -372,16 +372,20 @@
         const isOpen = !list.classList.contains('hidden');
 
         list.classList.add('hidden');
+        list.classList.remove('flex');
         backdrop.classList.add('hidden');
 
         if (!isOpen) {
             list.classList.remove('hidden');
+            list.classList.add('flex');
             backdrop.classList.remove('hidden');
         }
     }
 
     function closeAllPanels() {
-        document.getElementById('docListSidebar').classList.add('hidden');
+        const list = document.getElementById('docListSidebar');
+        list.classList.add('hidden');
+        list.classList.remove('flex');
         document.getElementById('mobileBackdrop').classList.add('hidden');
     }
 

@@ -41,7 +41,13 @@ class SkController extends Controller
             ->whereHas('document', function ($q) {
                 $q->whereIn('status', ['DITINJAU', 'PENDING']);
             })
-            ->latest()
+            ->orderByRaw("CASE
+                WHEN status = 'MENUNGGU' THEN 0
+                WHEN status = 'PENDING' THEN 1
+                WHEN status = 'TERIMA' THEN 2
+                ELSE 3
+            END")
+            ->orderBy('created_at', 'asc')
             ->get();
 
         return view('app.petinggi.dashboard', compact('approvals'));

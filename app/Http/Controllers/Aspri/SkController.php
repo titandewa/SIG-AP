@@ -112,13 +112,21 @@ class SkController extends Controller
     {
         $request->validate([
             'title' => 'required|string|max:255',
-            'document_number' => 'required|string|unique:documents,document_number',
+            'document_number' => 'required|string',
             'pdf_file' => 'required|mimes:pdf|max:10240',
             'petinggi_ids' => 'required|array',
             'perlu_direksi' => 'nullable|boolean',
             'direksi_ids' => 'required_if:perlu_direksi,1|nullable|array',
             'direksi_ids.*' => 'exists:users,id',
         ]);
+
+        $existingDoc = Document::where('document_number', $request->document_number)->with('user')->first();
+        if ($existingDoc) {
+            $adminName = $existingDoc->user->name ?? 'Administrator lain';
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['document_number' => "SK ini tidak bisa diupload karena nomor SK sudah pernah diajukan oleh {$adminName}."]);
+        }
 
         $needDireksi = $request->boolean('perlu_direksi');
 

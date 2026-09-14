@@ -19,7 +19,7 @@
     <link rel="icon" href="{{ asset('favicon.png') }}" type="image/png">
     <link rel="manifest" href="{{ asset('manifest.json') }}">
 </head>
-<body class="overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.95),_rgba(241,245,249,0.95))] min-h-screen text-slate-800">
+<body class="overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.95),_rgba(241,245,249,0.95))] min-h-screen text-slate-800" data-has-errors="{{ $errors->any() ? 'true' : 'false' }}">
     <div class="min-h-screen flex flex-col">
         <nav class="bg-[#021b41] text-white px-3 sm:px-6 py-3 flex items-center justify-between gap-2 shadow-lg shrink-0 sticky top-0 z-30 border-b border-white/10 backdrop-blur">
             <div class="flex items-center gap-2 sm:gap-4 min-w-0">

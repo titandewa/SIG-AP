@@ -8,7 +8,7 @@
 
         <p class="text-xs text-slate-500 mb-4">
             <i class="fa-solid fa-circle-info mr-1"></i>
-            Hanya menampilkan dokumen yang sudah kamu sahkan/tandatangani.
+            Hanya menampilkan dokumen yang sudah kamu berikan keputusan sebagai Direksi.
         </p>
 
         <!-- Search -->
@@ -27,22 +27,24 @@
             </form>
         </div>
 
-        <!-- List Dokumen yang Sudah Disahkan -->
+        <!-- List Approval Direksi -->
         <div class="space-y-4">
-            @forelse($documents as $document)
+            @forelse($approvals as $approval)
+                @php $document = $approval->document; @endphp
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <x-status-badge status="DISETUJUI" />
+                    <div class="flex justify-between items-start gap-3">
+                        <div class="min-w-0">
+                            <x-status-badge :status="$document->status" />
                             <h3 class="font-bold text-slate-800 text-base mt-1">{{ $document->title }}</h3>
                             <p class="text-xs text-slate-500">
                                 No: {{ $document->document_number }} • Administrator: {{ $document->user->name ?? '-' }}
-                                • Disahkan: {{ $document->updated_at->translatedFormat('d F Y, H:i') }}
+                                • Keputusanmu: <x-approval-status-badge :status="$approval->status" />
+                                • {{ $approval->updated_at->translatedFormat('d F Y, H:i') }}
                             </p>
                         </div>
                     </div>
 
-                    @if($document->signed_file_path)
+                    @if($document->status === 'DISETUJUI' && $document->signed_file_path)
                         <div class="mt-3 pt-3 border-t border-slate-100">
                             <a href="{{ asset('storage/' . $document->signed_file_path) }}" target="_blank"
                                 class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition">
@@ -54,7 +56,7 @@
             @empty
                 <div class="text-center py-16 bg-white rounded-2xl border border-slate-200">
                     <i class="fa-solid fa-folder-open text-3xl text-slate-300 mb-2 block"></i>
-                    <p class="text-slate-400 text-sm">Belum ada dokumen yang kamu sahkan.</p>
+                    <p class="text-slate-400 text-sm">Belum ada dokumen yang kamu putuskan.</p>
                 </div>
             @endforelse
         </div>

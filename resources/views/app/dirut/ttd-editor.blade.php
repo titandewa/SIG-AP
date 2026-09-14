@@ -1,4 +1,4 @@
-<x-app-shell title="SIGAP - Tandatangani Dokumen" role="dirut" roleColor="indigo" :sidebarItems="[
+<x-app-shell title="SIGAP - Tempatkan Tanda Tangan (Direksi)" role="dirut" roleColor="indigo" :sidebarItems="[
     ['label' => 'Dashboard', 'url' => route('app.dirut.dashboard'), 'icon' => 'fa-solid fa-gauge-high'],
     ['label' => 'Riwayat', 'url' => route('dirut.riwayat'), 'icon' => 'fa-solid fa-clock-rotate-left'],
     ['label' => 'Atur TTD', 'url' => route('dirut.signature.page'), 'icon' => 'fa-solid fa-signature'],
@@ -7,7 +7,6 @@
         @media (min-width: 1024px) {
             html, body { height: 100%; overflow: hidden; }
         }
-        /* Style tambahan untuk memastikan canvas tajam dan responsif di berbagai device */
         #pdfCanvas {
             display: block;
             width: 100% !important;
@@ -22,10 +21,7 @@
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
-
-        .signature-instance {
-            touch-action: none;
-        }
+        .signature-instance { touch-action: none; }
         .handle {
             position: absolute;
             width: 16px;
@@ -119,8 +115,8 @@
                     <button id="submitWithoutSignBtn" onclick="prosesSahkanTanpaTtd()" class="px-4 sm:px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-lg transition shadow-md flex items-center gap-2">
                         <i class="fa-solid fa-clock"></i> <span class="hidden sm:inline">Sahkan Tanpa TTD</span><span class="inline sm:hidden">Tanpa TTD</span>
                     </button>
-                    <button id="submitBtn" onclick="prosesTandaTangan()" class="px-4 sm:px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition shadow-md flex items-center gap-2">
-                        <i class="fa-solid fa-stamp"></i> <span class="hidden sm:inline">Sahkan Dokumen</span><span class="inline sm:hidden">Sahkan</span>
+                    <button id="submitBtn" onclick="prosesSimpanTtd()" class="px-4 sm:px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-stamp"></i> <span class="hidden sm:inline">Sahkan & Simpan TTD</span><span class="inline sm:hidden">Sahkan</span>
                     </button>
                 </div>
             </main>
@@ -134,7 +130,7 @@
                         <i class="fa-solid fa-xmark text-lg"></i>
                     </button>
                 </div>
-                <p class="text-xs text-slate-500 mb-4">Seret kotak di bawah ke posisi yang diinginkan pada dokumen.</p>
+                <p class="text-xs text-slate-500 mb-4">Seret kotak di bawah ke posisi yang diinginkan pada dokumen. Boleh lebih dari satu, di halaman berbeda sekalipun.</p>
 
                 <p class="text-xs font-semibold text-slate-600 mb-2">Kotak isian wajib diisi</p>
                 <div id="dragSignatureSource" onclick="addSignatureAtCenter()"
@@ -156,9 +152,9 @@
                 @if(count($document->signaturePlacements) > 0)
                     <div class="mt-5 pt-4 border-t border-slate-200">
                         <p class="text-xs font-semibold text-emerald-600 mb-2">
-                            <i class="fa-solid fa-circle-check mr-1"></i> TTD Validator (sudah ditempel)
+                            <i class="fa-solid fa-circle-check mr-1"></i> TTD yang sudah lebih dulu ditempel
                         </p>
-                        <p class="text-[11px] text-slate-400">Kotak bergaris hijau di dokumen adalah tanda tangan dari validator, akan otomatis ikut ditempel saat Anda menyahkan dokumen.</p>
+                        <p class="text-[11px] text-slate-400">Kotak bergaris hijau di dokumen adalah tanda tangan Validator / Direksi lain yang sudah lebih dulu setuju, akan otomatis ikut ditempel di file final.</p>
                     </div>
                 @endif
             </aside>
@@ -167,7 +163,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.27/dist/interact.min.js"></script>
-    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script>
         if (window.pdfjsLib) {
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -175,7 +171,23 @@
 
         const pdfUrl = "{{ asset('storage/' . $document->latestVersion->file_path) }}";
         const signatureImageSrc = "{{ asset('storage/' . auth()->user()->signature_path) }}";
-        const validatorPlacements = {!! json_encode($document->signaturePlacements->map(function ($p) {
+
+        let originalPdfBytes = null;
+        let pdfDocInstance = null;
+        let currentPage = 1;
+        let totalPagesCount = 0;
+
+        let signatureInstances = [];
+        let instanceCounter = 0;
+        const thumbRenderedPages = new Set();
+        let thumbObserver = null;
+        let zoomLevel = 1;
+        let currentRenderTask = null;
+        let currentRawViewport = null;
+
+        // Semua tanda tangan yang SUDAH ada di DB sebelum sesi ini (validator atau direksi lain
+        // yang sudah lebih dulu setuju). Ditampilkan read-only sebagai overlay hijau.
+        const existingPlacements = {!! json_encode($document->signaturePlacements->map(function ($p) {
             return [
                 'page' => $p->page_number,
                 'x' => $p->x,
@@ -183,25 +195,9 @@
                 'width' => $p->width,
                 'height' => $p->height,
                 'signature_path' => asset('storage/' . $p->signature_path),
-                'name' => $p->user->name ?? 'Validator',
+                'name' => $p->user->name ?? 'Penandatangan',
             ];
         })) !!};
-
-        let originalPdfBytes = null;
-        let pdfDocInstance = null;
-        let currentPage = 1;
-        let totalPagesCount = 0;
-        let pdfPageWidth = 0;
-        let pdfPageHeight = 0;
-        let currentRenderScale = 1;
-
-        let signatureInstances = [];
-        let instanceCounter = 0;
-        const thumbRenderedPages = new Set();
-        let thumbObserver = null;
-        let zoomLevel = 1;
-        let currentRenderTask = null; // buat cancel render yang lagi jalan biar nggak bentrok di canvas yang sama
-        let currentRawViewport = null; // dipakai buat konversi koordinat TTD validator ke posisi canvas
 
         async function loadPdf() {
             if (!window.pdfjsLib) {
@@ -226,7 +222,7 @@
             document.getElementById('totalPages').textContent = totalPagesCount;
             document.getElementById('pageInput').max = totalPagesCount;
 
-            currentPage = totalPagesCount;
+            currentPage = 1;
             document.getElementById('pageInput').value = currentPage;
 
             await buildThumbnailList();
@@ -331,7 +327,6 @@
         }
 
         async function renderPage(num) {
-            // Batalkan render sebelumnya kalau masih jalan, biar nggak rebutan pakai canvas yang sama
             if (currentRenderTask) {
                 try { currentRenderTask.cancel(); } catch (e) {}
                 currentRenderTask = null;
@@ -339,13 +334,12 @@
 
             const page = await pdfDocInstance.getPage(num);
             const rawViewport = page.getViewport({ scale: 1 });
-            pdfPageWidth = rawViewport.width;
-            pdfPageHeight = rawViewport.height;
+            currentRawViewport = rawViewport;
 
             const viewerScroll = document.getElementById('viewerScroll');
             const availableWidth = viewerScroll.clientWidth - 40;
             const scaleByWidth = availableWidth / rawViewport.width;
-            currentRenderScale = Math.max(scaleByWidth, 0.1) * zoomLevel;
+            const currentRenderScale = Math.max(scaleByWidth, 0.1) * zoomLevel;
 
             const viewport = page.getViewport({ scale: currentRenderScale });
             const pixelRatio = window.devicePixelRatio || 1;
@@ -353,7 +347,6 @@
             const canvas = document.getElementById('pdfCanvas');
             const ctx = canvas.getContext('2d');
 
-            // Mengatasi masalah blur dengan resolusi device pixel ratio
             canvas.width = viewport.width * pixelRatio;
             canvas.height = viewport.height * pixelRatio;
             canvas.style.width = viewport.width + 'px';
@@ -366,7 +359,6 @@
             try {
                 await task.promise;
             } catch (err) {
-                // Render dibatalkan karena keburu ada render baru menyusul -> aman, abaikan saja
                 if (err && err.name === 'RenderingCancelledException') {
                     return;
                 }
@@ -377,10 +369,9 @@
                 }
             }
 
-            currentRawViewport = rawViewport;
             updateNavButtons();
             renderVisibleSignatures();
-            renderValidatorPlacements();
+            renderExistingPlacements();
             highlightActiveThumb();
         }
 
@@ -496,7 +487,6 @@
             wrapper.id = id;
             wrapper.className = 'signature-instance absolute cursor-move border-2 border-dashed border-indigo-500 bg-white/40';
 
-            // Ukuran awal proporsional ke lebar kanvas, bukan fixed px
             const defaultWidth = Math.min(Math.max(canvas.clientWidth * 0.35, 90), 300);
             const defaultHeight = defaultWidth * (210 / 480);
 
@@ -549,11 +539,8 @@
             });
         }
 
-        // Menampilkan TTD dari validator (read-only, gak bisa digeser/dihapus dirut)
-        // sebagai overlay di atas canvas, biar dirut bisa lihat siapa saja yang
-        // sudah TTD sebelum dia ikut menyahkan dokumen.
-        function renderValidatorPlacements() {
-            document.querySelectorAll('.validator-signature-overlay').forEach(el => el.remove());
+        function renderExistingPlacements() {
+            document.querySelectorAll('.existing-signature-overlay').forEach(el => el.remove());
 
             if (!currentRawViewport) return;
 
@@ -562,7 +549,7 @@
             const scaleX = canvas.clientWidth / currentRawViewport.width;
             const scaleY = canvas.clientHeight / currentRawViewport.height;
 
-            validatorPlacements
+            existingPlacements
                 .filter(vp => vp.page === currentPage)
                 .forEach(vp => {
                     const visualWidth = vp.width * scaleX;
@@ -571,7 +558,7 @@
                     const visualY = (currentRawViewport.height - vp.y - vp.height) * scaleY;
 
                     const wrapper = document.createElement('div');
-                    wrapper.className = 'validator-signature-overlay absolute border-2 border-dashed border-emerald-500 bg-white/40 pointer-events-none';
+                    wrapper.className = 'existing-signature-overlay absolute border-2 border-dashed border-emerald-500 bg-white/40 pointer-events-none';
                     wrapper.style.width = visualWidth + 'px';
                     wrapper.style.height = visualHeight + 'px';
                     wrapper.style.left = visualX + 'px';
@@ -604,7 +591,7 @@
             const visibleWidth = viewerScroll.clientWidth;
             const visibleHeight = viewerScroll.clientHeight;
 
-            let centerX = currentScrollX + (visibleWidth / boxWidth) * 0 + (visibleWidth - boxWidth) / 2;
+            let centerX = currentScrollX + (visibleWidth - boxWidth) / 2;
             let centerY = currentScrollY + (visibleHeight - boxHeight) / 2;
 
             const maxLeft = Math.max(0, canvas.clientWidth - boxWidth);
@@ -675,14 +662,10 @@
             });
         }
 
-        function generateRandomHash() {
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-            let result = 'SIGAP-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-';
-            for (let i = 0; i < 8; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-            return result;
-        }
-
-        async function prosesTandaTangan() {
+        // Sama seperti punya Validator: bukan bikin file final di sini, cuma kirim koordinat
+        // (dalam satuan asli halaman PDF) + PDF hasil flatten sementara (TTD sendiri + yang
+        // sudah ada). Server yang nentuin apakah ini direksi terakhir dan bikin file final.
+        async function prosesSimpanTtd() {
             if (signatureInstances.length === 0) {
                 showAlertModal('Tambahkan minimal satu tanda tangan terlebih dahulu.');
                 return;
@@ -690,48 +673,30 @@
 
             const submitBtn = document.getElementById('submitBtn');
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Memproses...';
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Menyimpan...';
 
             try {
-                const qrHash = generateRandomHash();
-                const verifyUrl = "{{ url('/verify') }}/" + qrHash;
-                const qrApiUrl = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + encodeURIComponent(verifyUrl);
-                const qrImageBytes = await fetch(qrApiUrl).then(res => res.arrayBuffer());
-                const signatureImageBytes = await fetch(signatureImageSrc).then(res => res.arrayBuffer());
-
-                const pdfDoc = await PDFLib.PDFDocument.load(originalPdfBytes, { ignoreEncryption: true });
-                const pngSignature = await pdfDoc.embedPng(signatureImageBytes);
-                const pngQr = await pdfDoc.embedPng(qrImageBytes);
-                const pages = pdfDoc.getPages();
-
-                const placementsData = [];
+                const canvas = document.getElementById('pdfCanvas');
+                const placements = [];
 
                 for (const inst of signatureInstances) {
-                    const targetPage = pages[inst.page - 1];
                     const pageForScale = await pdfDocInstance.getPage(inst.page);
                     const rawVp = pageForScale.getViewport({ scale: 1 });
 
-                    const scaleX = rawVp.width / document.getElementById('pdfCanvas').clientWidth;
-                    const scaleY = rawVp.height / document.getElementById('pdfCanvas').clientHeight;
+                    const scaleX = rawVp.width / canvas.clientWidth;
+                    const scaleY = rawVp.height / canvas.clientHeight;
 
                     const visualX = parseFloat(inst.element.getAttribute('data-x')) || 0;
                     const visualY = parseFloat(inst.element.getAttribute('data-y')) || 0;
                     const visualWidth = inst.element.clientWidth;
                     const visualHeight = inst.element.clientHeight;
 
-                    const pdfX = visualX * scaleX;
                     const pdfWidth = visualWidth * scaleX;
                     const pdfHeight = visualHeight * scaleY;
+                    const pdfX = visualX * scaleX;
                     const pdfY = rawVp.height - (visualY * scaleY) - pdfHeight;
 
-                    targetPage.drawImage(pngSignature, { x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight });
-
-                    const qrSize = Math.min(pdfHeight, 40);
-                    const qrX = pdfX + pdfWidth + 8;
-                    const qrY = pdfY + (pdfHeight - qrSize) / 2;
-                    targetPage.drawImage(pngQr, { x: qrX, y: qrY, width: qrSize, height: qrSize });
-
-                    placementsData.push({
+                    placements.push({
                         page_number: inst.page,
                         x: pdfX,
                         y: pdfY,
@@ -740,50 +705,64 @@
                     });
                 }
 
-                // Gambar TTD dari semua validator yang sudah menempatkan tanda tangannya
-                for (const vp of validatorPlacements) {
-                    const validatorSigBytes = await fetch(vp.signature_path).then(res => res.arrayBuffer());
-                    const pngValidatorSig = await pdfDoc.embedPng(validatorSigBytes);
-                    const targetPage = pages[vp.page - 1];
+                // === Flatten PDF pakai pdf-lib: gabung TTD sendiri + TTD yang sudah ada ===
+                const { PDFDocument } = PDFLib;
+                const pdfDoc = await PDFDocument.load(originalPdfBytes.slice(0));
 
-                    targetPage.drawImage(pngValidatorSig, {
-                        x: vp.x,
-                        y: vp.y,
-                        width: vp.width,
-                        height: vp.height,
-                    });
+                async function embedSignatureOnPdf(pdfDoc, imgUrl, pageNumber, x, y, width, height) {
+                    const imgBytes = await fetch(imgUrl).then(r => r.arrayBuffer());
+                    let img;
+                    try {
+                        img = await pdfDoc.embedPng(imgBytes);
+                    } catch {
+                        img = await pdfDoc.embedJpg(imgBytes);
+                    }
+                    const page = pdfDoc.getPage(pageNumber - 1);
+                    page.drawImage(img, { x, y, width, height });
                 }
 
-                const modifiedPdfBytes = await pdfDoc.save();
+                // Tempel TTD yang sudah lebih dulu ada (validator / direksi lain)
+                for (const vp of existingPlacements) {
+                    await embedSignatureOnPdf(pdfDoc, vp.signature_path, vp.page, vp.x, vp.y, vp.width, vp.height);
+                }
+
+                // Tempel TTD milik sendiri
+                for (const p of placements) {
+                    await embedSignatureOnPdf(pdfDoc, signatureImageSrc, p.page_number, p.x, p.y, p.width, p.height);
+                }
+
+                const flattenedBytes = await pdfDoc.save();
+                const signedBlob = new Blob([flattenedBytes], { type: 'application/pdf' });
 
                 const formData = new FormData();
-                const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
-                formData.append('signed_pdf', blob, 'signed.pdf');
-                formData.append('qr_hash', qrHash);
-                formData.append('placements', JSON.stringify(placementsData));
-                formData.append('_token', '{{ csrf_token() }}');
+                formData.append('placements', JSON.stringify(placements));
+                formData.append('signed_pdf', signedBlob, 'signed.pdf');
 
-                const response = await fetch("{{ route('dirut.sign', $document->id) }}", { method: 'POST', body: formData });
+                const response = await fetch("{{ route('dirut.ttd.save', $document->id) }}", {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    body: formData,
+                });
 
                 if (response.redirected) {
                     window.location.href = response.url;
                 } else if (response.ok) {
                     window.location.href = "{{ route('app.dirut.dashboard') }}";
                 } else {
-                    showAlertModal('Terjadi kesalahan saat menyimpan dokumen.');
+                    showAlertModal('Terjadi kesalahan saat menyimpan tanda tangan.');
                     submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fa-solid fa-stamp"></i> Sahkan Dokumen';
+                    submitBtn.innerHTML = '<i class="fa-solid fa-stamp"></i> Sahkan & Simpan TTD';
                 }
             } catch (error) {
                 console.error(error);
                 showAlertModal('Terjadi kesalahan: ' + error.message);
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fa-solid fa-stamp"></i> Sahkan Dokumen';
+                submitBtn.innerHTML = '<i class="fa-solid fa-stamp"></i> Sahkan & Simpan TTD';
             }
         }
 
         async function prosesSahkanTanpaTtd() {
-            const confirmed = await openConfirmModal('Dokumen akan disahkan TANPA tanda tangan Anda. Aspri akan menempelkan TTD nanti. Lanjutkan?');
+            const confirmed = await openConfirmModal('Dokumen akan disahkan TANPA tanda tangan Anda. Admin akan menempelkan TTD Anda nanti. Lanjutkan?');
             if (!confirmed) {
                 return;
             }
@@ -798,21 +777,25 @@
 
                 const response = await fetch("{{ route('dirut.sign-without-signature', $document->id) }}", {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
                 });
 
-                if (response.redirected) {
-                    window.location.href = response.url;
-                } else if (response.ok) {
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    await showAlertModal(data.message);
                     window.location.href = "{{ route('app.dirut.dashboard') }}";
                 } else {
-                    showAlertModal('Terjadi kesalahan saat menyimpan dokumen.');
+                    showAlertModal(data.message || 'Terjadi kesalahan saat menyimpan.');
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fa-solid fa-clock"></i> Sahkan Tanpa TTD';
                 }
             } catch (error) {
                 console.error(error);
-                showAlertModal('Terjadi kesalahan: ' + error.message);
+                showAlertModal('Terjadi kesalahan pada sistem.');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa-solid fa-clock"></i> Sahkan Tanpa TTD';
             }

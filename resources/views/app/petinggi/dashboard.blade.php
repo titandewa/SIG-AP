@@ -171,7 +171,7 @@
                             </button>
                         </form>
 
-                        <form action="{{ route('petinggi.review', $app->document_id) }}" method="POST" class="space-y-3 pt-2 border-t border-slate-200">
+                        <form action="{{ route('petinggi.review', $app->document_id) }}" method="POST" class="space-y-3 pt-2 border-t border-slate-200" data-doc-id="{{ $app->document_id }}">
                             @csrf
                             @if($app->status === 'MENUNGGU')
                                 <div class="grid grid-cols-2 lg:grid-cols-1 gap-2 pt-1">
@@ -223,6 +223,24 @@
                 'file_url' => asset('storage/' . $v->file_path),
             ];
         }
+
+        $siblingsAllTerima = $app->document->approvals
+            ->where('role', 'validator')
+            ->where('id', '!=', $app->id)
+            ->every(fn($a) => $a->status === 'TERIMA');
+
+        $existingPlacementsForJs = $app->document->signaturePlacements->map(function ($p) {
+            return [
+                'page' => $p->page_number,
+                'x' => $p->x,
+                'y' => $p->y,
+                'width' => $p->width,
+                'height' => $p->height,
+                'signature_path' => asset('storage/' . $p->signature_path),
+                'name' => $p->user->name ?? 'Penandatangan',
+            ];
+        })->values();
+
         $approvalsForJs[] = [
             'id' => $app->document_id,
             'title' => $app->document->title,
@@ -230,11 +248,15 @@
             'pengaju' => $app->document->user->name ?? '-',
             'file_url' => $app->document->latestVersion ? asset('storage/' . $app->document->latestVersion->file_path) : null,
             'versions' => $versionsForJs,
+            'needSign' => (bool) $app->need_sign,
+            'siblingsAllTerima' => $siblingsAllTerima,
+            'existingPlacements' => $existingPlacementsForJs,
         ];
     }
 @endphp
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script>
     if (window.pdfjsLib) {
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -451,8 +473,26 @@
         pendingStatus = null;
     }
 
-    function confirmYes() {
+    async function embedSignatureOnPdf(pdfDocRef, imgUrl, pageNumber, x, y, width, height) {
+        const imgBytes = await fetch(imgUrl).then(r => r.arrayBuffer());
+        let img;
+        try {
+            img = await pdfDocRef.embedPng(imgBytes);
+        } catch {
+            img = await pdfDocRef.embedJpg(imgBytes);
+        }
+        const page = pdfDocRef.getPage(pageNumber - 1);
+        page.drawImage(img, { x, y, width, height });
+    }
+
+    async function confirmYes() {
         if (!pendingForm || !pendingStatus) return;
+
+        const docId = parseInt(pendingForm.dataset.docId);
+        const doc = reviewDocuments.find(d => d.id === docId);
+
+        document.getElementById('confirmModal').classList.add('hidden');
+
         let hidden = pendingForm.querySelector('input[name="status"]');
         if (!hidden) {
             hidden = document.createElement('input');
@@ -461,7 +501,53 @@
             pendingForm.appendChild(hidden);
         }
         hidden.value = pendingStatus;
-        pendingForm.submit();
+
+        const needsFlatten = pendingStatus === 'TERIMA'
+            && doc && !doc.needSign
+            && doc.siblingsAllTerima
+            && doc.existingPlacements && doc.existingPlacements.length > 0;
+
+        if (!needsFlatten) {
+            pendingForm.submit();
+            return;
+        }
+
+        // Approval ini bakal jadi penyelesai terakhir tapi gak punya TTD sendiri —
+        // flatten dulu TTD yang sudah ada di DB biar gak ketinggalan di file final.
+        try {
+            const response = await fetch(doc.file_url, { cache: 'no-store' });
+            const originalBytes = await response.arrayBuffer();
+
+            const { PDFDocument } = PDFLib;
+            const pdfDoc = await PDFDocument.load(originalBytes);
+
+            for (const p of doc.existingPlacements) {
+                await embedSignatureOnPdf(pdfDoc, p.signature_path, p.page, p.x, p.y, p.width, p.height);
+            }
+
+            const flattenedBytes = await pdfDoc.save();
+            const blob = new Blob([flattenedBytes], { type: 'application/pdf' });
+
+            const formData = new FormData(pendingForm);
+            formData.append('signed_pdf', blob, 'signed.pdf');
+
+            const res = await fetch(pendingForm.action, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body: formData,
+            });
+
+            if (res.redirected) {
+                window.location.href = res.url;
+            } else if (res.ok) {
+                window.location.reload();
+            } else {
+                showAlertModal('Terjadi kesalahan saat menyelesaikan dokumen.');
+            }
+        } catch (err) {
+            console.error(err);
+            showAlertModal('Terjadi kesalahan: ' + err.message);
+        }
     }
 </script>
 

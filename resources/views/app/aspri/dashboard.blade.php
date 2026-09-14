@@ -174,17 +174,33 @@
 
                         <div id="direksiSection" class="hidden">
                             <label class="block text-xs font-semibold text-slate-600 mb-2">Pilih Direksi</label>
-                            <div id="direksiListBox" class="space-y-1.5 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs max-h-32 overflow-y-auto">
+                            <div id="direksiListBox" class="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs max-h-40 overflow-y-auto">
                                 @forelse($dirutList as $dirut)
-                                    <label class="flex items-center gap-2 cursor-pointer py-1 border-b border-slate-100 last:border-0">
-                                        <input type="radio" name="dirut_id" value="{{ $dirut->id }}" class="text-indigo-600">
-                                        <span>{{ $dirut->name }}</span>
-                                    </label>
+                                    <div class="direksi-item flex items-center justify-between gap-2 py-1 border-b border-slate-100 last:border-0">
+                                        <label class="flex items-center gap-2 cursor-pointer flex-1">
+                                            <input type="checkbox" class="direksi-select rounded text-indigo-600" data-id="{{ $dirut->id }}">
+                                            <span>{{ $dirut->name }}</span>
+                                        </label>
+                                        <div class="flex items-center gap-3 text-[10px] text-slate-500">
+                                            <label class="flex items-center gap-1 cursor-pointer">
+                                                <input type="radio" name="mode_direksi_{{ $dirut->id }}" value="validasi" class="mode-radio-direksi" data-id="{{ $dirut->id }}" checked>
+                                                Validasi only
+                                            </label>
+                                            <label class="flex items-center gap-1 cursor-pointer">
+                                                <input type="radio" name="mode_direksi_{{ $dirut->id }}" value="sign" class="mode-radio-direksi" data-id="{{ $dirut->id }}">
+                                                Sign
+                                            </label>
+                                        </div>
+                                    </div>
                                 @empty
                                     <p class="text-slate-400 italic">Belum ada user dengan role Direksi.</p>
                                 @endforelse
                             </div>
-                            @error('dirut_id')
+
+                            <!-- hidden inputs akan diisi via JS sebelum submit -->
+                            <div id="hiddenDireksiInputs"></div>
+
+                            @error('direksi_ids')
                                 <p class="text-[11px] text-rose-600 mt-1">{{ $message }}</p>
                             @enderror
                         </div>
@@ -256,7 +272,7 @@
         perluDireksiCheckbox.addEventListener('change', () => {
             direksiSection.classList.toggle('hidden', !perluDireksiCheckbox.checked);
             if (!perluDireksiCheckbox.checked) {
-                document.querySelectorAll('input[name="dirut_id"]').forEach(r => r.checked = false);
+                document.querySelectorAll('.direksi-select').forEach(cb => cb.checked = false);
             }
         });
 
@@ -319,8 +335,8 @@
                 return;
             }
 
-            if (perluDireksiCheckbox.checked && !document.querySelector('input[name="dirut_id"]:checked')) {
-                showAlertModal('Pilih 1 Direksi, atau matikan centang "Perlu Direksi?" kalau SK ini tidak butuh direksi.');
+            if (perluDireksiCheckbox.checked && document.querySelectorAll('.direksi-select:checked').length === 0) {
+                showAlertModal('Pilih minimal 1 Direksi, atau matikan centang "Perlu Direksi?" kalau SK ini tidak butuh direksi.');
                 return;
             }
 
@@ -356,14 +372,34 @@
             });
 
             if (perluDireksiCheckbox.checked) {
-                const dirutRadio = document.querySelector('input[name="dirut_id"]:checked');
-                const dirutName = dirutRadio.closest('label').querySelector('span').textContent;
+                const hiddenDireksiContainer = document.getElementById('hiddenDireksiInputs');
+                hiddenDireksiContainer.innerHTML = '';
 
-                const li = document.createElement('li');
-                li.className = 'flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-100';
-                li.innerHTML = `<span class="font-medium text-slate-700">${dirutName}</span>
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700">Direksi</span>`;
-                confirmList.appendChild(li);
+                document.querySelectorAll('.direksi-select:checked').forEach(function (checkbox) {
+                    const id = checkbox.dataset.id;
+                    const name = checkbox.closest('.direksi-item').querySelector('span').textContent;
+                    const mode = document.querySelector(`input[name="mode_direksi_${id}"]:checked`).value;
+
+                    const idInput = document.createElement('input');
+                    idInput.type = 'hidden';
+                    idInput.name = 'direksi_ids[]';
+                    idInput.value = id;
+                    hiddenDireksiContainer.appendChild(idInput);
+
+                    const signInput = document.createElement('input');
+                    signInput.type = 'hidden';
+                    signInput.name = `need_sign_direksi[${id}]`;
+                    signInput.value = mode === 'sign' ? 1 : 0;
+                    hiddenDireksiContainer.appendChild(signInput);
+
+                    const li = document.createElement('li');
+                    li.className = 'flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-100';
+                    li.innerHTML = `<span class="font-medium text-slate-700">${name}</span>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${mode === 'sign' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600'}">
+                            ${mode === 'sign' ? 'Sign' : 'Validasi only'} — Direksi
+                        </span>`;
+                    confirmList.appendChild(li);
+                });
             }
 
             confirmModal.classList.remove('hidden');

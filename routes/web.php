@@ -153,12 +153,13 @@ Route::middleware(['auth'])->group(function () {
     // Route khusus Dirut
     Route::middleware(['role:dirut'])->group(function () {
         Route::get('/app/dirut/dashboard', [DirutSkController::class, 'index'])->name('app.dirut.dashboard');
-        Route::post('/app/dirut/sign/{id}', [DirutSkController::class, 'sign'])->name('dirut.sign');
-        Route::post('/app/dirut/sign-without-signature/{id}', [DirutSkController::class, 'signWithoutSignature'])->name('dirut.sign-without-signature'); // ← baris baru
+        Route::post('/app/dirut/review/{id}', [DirutSkController::class, 'review'])->name('dirut.review');
+        Route::post('/app/dirut/sign-without-signature/{id}', [DirutSkController::class, 'signWithoutSignature'])->name('dirut.sign-without-signature');
+        Route::get('/app/dirut/riwayat', [DirutSkController::class, 'riwayat'])->name('dirut.riwayat');
+        Route::get('/app/dirut/ttd/{id}', [DirutSkController::class, 'showTtdEditor'])->name('dirut.ttd.editor');
+        Route::post('/app/dirut/ttd/{id}', [DirutSkController::class, 'saveSignaturePlacement'])->name('dirut.ttd.save');
         Route::get('/app/dirut/signature', [DirutSkController::class, 'showSignaturePage'])->name('dirut.signature.page');
         Route::post('/app/dirut/signature', [DirutSkController::class, 'saveSignature'])->name('dirut.signature.save');
-        Route::get('/app/dirut/ttd/{id}', [DirutSkController::class, 'showTtdEditor'])->name('dirut.ttd.editor');
-        Route::get('/app/dirut/riwayat', [DirutSkController::class, 'riwayat'])->name('dirut.riwayat');
     });
 
     // Route khusus Admin (manajemen akun)

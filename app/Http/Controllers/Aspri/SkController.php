@@ -28,7 +28,6 @@ class SkController extends Controller
         $this->waService = $waService;
     }
 
-    // Dashboard Administrator Real
     public function index()
     {
         $petinggiList = User::where('role', 'petinggi')->get();
@@ -36,7 +35,7 @@ class SkController extends Controller
 
         $documents = Document::with(['latestVersion', 'approvals.user', 'comments'])
             ->where('user_id', Auth::id())
-            ->whereIn('status', ['DITINJAU', 'PENDING', 'SIAP_TTD', 'DISETUJUI_TANPA_TTD'])
+            ->whereIn('status', ['DITINJAU', 'PENDING', 'DITINJAU_DIREKSI', 'PENDING_DIREKSI', 'SIAP_TTD', 'DISETUJUI_TANPA_TTD'])
             ->latest()
             ->get();
 
@@ -49,7 +48,6 @@ class SkController extends Controller
             ->where('user_id', Auth::id())
             ->findOrFail($id);
 
-        // Tandai semua komentar di dokumen ini sebagai sudah dibaca
         $document->comments()->update(['is_read' => true]);
 
         return view('app.aspri.detail', compact('document'));
@@ -80,7 +78,7 @@ class SkController extends Controller
     {
         $documents = Document::with(['latestVersion', 'approvals.user'])
             ->where('user_id', Auth::id())
-            ->whereIn('status', ['DITINJAU', 'PENDING', 'SIAP_TTD'])
+            ->whereIn('status', ['DITINJAU', 'PENDING', 'DITINJAU_DIREKSI', 'PENDING_DIREKSI', 'SIAP_TTD'])
             ->latest()
             ->get();
 
@@ -110,7 +108,6 @@ class SkController extends Controller
         return view('app.aspri.riwayat', compact('documents'));
     }
 
-    // Simpan Pengajuan SK Baru (Oleh Administrator)
     public function store(Request $request)
     {
         $request->validate([
@@ -119,7 +116,8 @@ class SkController extends Controller
             'pdf_file' => 'required|mimes:pdf|max:10240',
             'petinggi_ids' => 'required|array',
             'perlu_direksi' => 'nullable|boolean',
-            'dirut_id' => 'required_if:perlu_direksi,1|nullable|exists:users,id',
+            'direksi_ids' => 'required_if:perlu_direksi,1|nullable|array',
+            'direksi_ids.*' => 'exists:users,id',
         ]);
 
         $needDireksi = $request->boolean('perlu_direksi');
@@ -137,7 +135,6 @@ class SkController extends Controller
                 'document_number' => $request->document_number,
                 'status' => 'DITINJAU',
                 'need_direksi' => $needDireksi,
-                'dirut_id' => $needDireksi ? $request->dirut_id : null,
             ]);
 
             DocumentVersion::create([
@@ -151,27 +148,43 @@ class SkController extends Controller
                 DocumentApproval::create([
                     'document_id' => $document->id,
                     'user_id' => $petinggiId,
+                    'role' => 'validator',
                     'status' => 'MENUNGGU',
                     'need_sign' => $request->input("need_sign.$petinggiId", 0),
                 ]);
             }
 
-            // Log dipanggil SEKALI, setelah semua approval selesai dibuat
-            $validatorNames = $document->approvals()->with('user')->get()->pluck('user.name')->join(', ');
+            if ($needDireksi) {
+                foreach ($request->direksi_ids as $direksiId) {
+                    DocumentApproval::create([
+                        'document_id' => $document->id,
+                        'user_id' => $direksiId,
+                        'role' => 'direksi',
+                        'status' => 'MENUNGGU',
+                        'need_sign' => $request->input("need_sign_direksi.$direksiId", 0),
+                    ]);
+                }
+            }
+
+            $validatorNames = $document->approvals()
+                ->where('role', 'validator')
+                ->with('user')
+                ->get()
+                ->pluck('user.name')
+                ->join(', ');
 
             ActivityLogger::log(
                 action: 'kirim_sk',
                 description: Auth::user()->name . " (Admin) mengirim SK \"{$document->title}\" kepada Validator: {$validatorNames}",
                 documentId: $document->id,
-                meta: ['validators' => $document->approvals()->pluck('user_id')]
+                meta: ['validators' => $document->approvals()->where('role', 'validator')->pluck('user_id')]
             );
 
             return $document;
         });
 
-        // Kirim WA + FCM notif ke semua Validator yang jadi reviewer
         $document->load('approvals.user');
-        foreach ($document->approvals as $approval) {
+        foreach ($document->approvals->where('role', 'validator') as $approval) {
             $this->waService->sendWaPengajuanBaru($approval->user, $document);
 
             if ($approval->user) {
@@ -199,7 +212,6 @@ class SkController extends Controller
         return view('app.aspri.version-history', compact('document', 'versions'));
     }
 
-    // Logika Re-Upload
     public function uploadRevision(Request $request, $id)
     {
         $request->validate([
@@ -209,11 +221,13 @@ class SkController extends Controller
 
         $document = Document::with('versions', 'approvals.user')->findOrFail($id);
 
-        if ($document->status !== 'PENDING') {
+        if (!in_array($document->status, ['PENDING', 'PENDING_DIREKSI'])) {
             return redirect()->back()->with('error', 'Dokumen ini tidak sedang dalam status revisi.');
         }
 
-        DB::transaction(function () use ($request, $document) {
+        $fromDireksi = $document->status === 'PENDING_DIREKSI';
+
+        DB::transaction(function () use ($request, $document, $fromDireksi) {
             $file = $request->file('pdf_file');
 
             $safeTitle = Str::slug($request->title);
@@ -229,17 +243,26 @@ class SkController extends Controller
                 'original_filename' => $request->title . '.pdf',
             ]);
 
-            // Reset semua approval Validator karena dokumen berubah
-            $document->approvals()->update(['status' => 'MENUNGGU']);
+            if ($fromDireksi) {
+                $document->approvals()->where('role', 'direksi')->update(['status' => 'MENUNGGU']);
+                $newStatus = 'DITINJAU_DIREKSI';
+            } else {
+                $document->approvals()->update(['status' => 'MENUNGGU']);
+                $newStatus = 'DITINJAU';
+            }
 
             $document->update([
-                'status' => 'DITINJAU',
+                'status' => $newStatus,
                 'title' => $request->title,
             ]);
         });
 
-        // Kirim FCM ke semua Validator reviewer bahwa ada revisi baru untuk ditinjau ulang
-        foreach ($document->approvals as $approval) {
+        $notifyRole = $fromDireksi ? 'direksi' : 'validator';
+        $notifUrl = $fromDireksi
+            ? route('app.dirut.dashboard', ['doc' => $document->id])
+            : route('app.petinggi.dashboard', ['doc' => $document->id]);
+
+        foreach ($document->approvals->where('role', $notifyRole) as $approval) {
             if ($approval->user) {
                 $this->fcmService->sendToUser(
                     $approval->user,
@@ -248,13 +271,17 @@ class SkController extends Controller
                     [
                         'document_id' => (string) $document->id,
                         'type' => 'revisi_diunggah',
-                        'url' => route('app.petinggi.dashboard', ['doc' => $document->id]),
+                        'url' => $notifUrl,
                     ]
                 );
             }
         }
 
-        return redirect()->back()->with('success', 'Revisi berhasil diunggah, menunggu peninjauan ulang dari Validator.');
+        $successMsg = $fromDireksi
+            ? 'Revisi berhasil diunggah, menunggu peninjauan ulang dari Direksi.'
+            : 'Revisi berhasil diunggah, menunggu peninjauan ulang dari Validator.';
+
+        return redirect()->back()->with('success', $successMsg);
     }
 
     public function showTtdEditor($id)
@@ -264,36 +291,33 @@ class SkController extends Controller
             ->where('status', 'DISETUJUI_TANPA_TTD')
             ->findOrFail($id);
 
-        // Kalau signed_at sudah terisi, artinya dirut SUDAH TTD asli sendiri
-        // (via sign()), PDF-nya sudah ada TTD+QR dirut. Kalau belum, berarti
-        // dirut belum TTD sama sekali (via signWithoutSignature).
         $dirutAlreadySigned = !is_null($document->signed_at);
-
-        $dirut = null;
-        if (!$dirutAlreadySigned) {
-            $dirut = User::where('id', $document->dirut_id)
-                ->where('role', 'dirut')
-                ->whereNotNull('signature_path')
-                ->first();
-            if (!$dirut) {
-                return redirect()->back()->with('error', 'Direksi yang dipilih untuk dokumen ini belum mengatur tanda tangan.');
-            }
-        }
 
         $signedUserIds = $document->signaturePlacements()->pluck('user_id')->toArray();
 
-        $pendingValidators = $document->approvals()
+        $pendingDireksi = $document->approvals()
+            ->where('role', 'direksi')
             ->where('status', 'TERIMA')
             ->where('need_sign', true)
             ->whereNotIn('user_id', $signedUserIds)
             ->with('user')
             ->get();
 
-        // Kalau dirut sudah TTD, mulai dari file yang SUDAH ada TTD dirut+QR.
-        // Kalau belum, mulai dari file asli.
+        if (!$dirutAlreadySigned && $pendingDireksi->isEmpty()) {
+            return redirect()->back()->with('error', 'Tidak ada Direksi dengan tanda tangan tertunda untuk dokumen ini.');
+        }
+
+        $pendingValidators = $document->approvals()
+            ->where('role', 'validator')
+            ->where('status', 'TERIMA')
+            ->where('need_sign', true)
+            ->whereNotIn('user_id', $signedUserIds)
+            ->with('user')
+            ->get();
+
         $pdfSourcePath = $dirutAlreadySigned ? $document->signed_file_path : $document->latestVersion->file_path;
 
-        return view('app.aspri.ttd-editor', compact('document', 'dirut', 'pendingValidators', 'dirutAlreadySigned', 'pdfSourcePath'));
+        return view('app.aspri.ttd-editor', compact('document', 'pendingDireksi', 'pendingValidators', 'dirutAlreadySigned', 'pdfSourcePath'));
     }
 
     public function saveTtd(Request $request, $id)

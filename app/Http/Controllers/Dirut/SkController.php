@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Dirut;
 
 use App\Http\Controllers\Controller;
+use App\Models\Comment;
 use App\Models\Document;
+use App\Models\DocumentApproval;
+use App\Models\SignaturePlacement;
 use App\Services\FcmService;
 use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\Request;
@@ -11,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use App\Services\ActivityLogger;
+use App\Models\NotificationHistory;
 
 class SkController extends Controller
 {
@@ -23,131 +27,273 @@ class SkController extends Controller
         $this->waService = $waService;
     }
 
-    // Dashboard Direksi Real
-    public function index()
+    // Dashboard Direksi
+    public function index(Request $request)
     {
-        $readyToSignDocuments = Document::with(['latestVersion', 'approvals.user'])
-            ->where('status', 'SIAP_TTD')
-            ->where('dirut_id', Auth::id())
-            ->latest()
+        $approvals = DocumentApproval::with([
+                'document.latestVersion',
+                'document.versions',
+                'document.user',
+                'document.approvals.user',
+                'document.comments.user'
+            ])
+            ->where('user_id', Auth::id())
+            ->where('role', 'direksi')
+            ->whereHas('document', function ($q) {
+                $q->whereIn('status', ['DITINJAU_DIREKSI', 'PENDING_DIREKSI']);
+            })
+            ->orderByRaw("CASE
+                WHEN status = 'MENUNGGU' THEN 0
+                WHEN status = 'PENDING' THEN 1
+                WHEN status = 'TERIMA' THEN 2
+                ELSE 3
+            END")
+            ->orderBy('created_at', 'asc')
             ->get();
 
-        return view('app.dirut.dashboard', compact('readyToSignDocuments'));
+        $focusDocId = $request->query('doc');
+
+        return view('app.dirut.dashboard', compact('approvals', 'focusDocId'));
     }
 
     public function riwayat(Request $request)
     {
-        $query = Document::where('status', 'DISETUJUI')
-            ->whereNotNull('signed_file_path')
-            ->with('user');
+        $userId = Auth::id();
+
+        $query = DocumentApproval::with(['document.user', 'document.latestVersion', 'document.approvals.user'])
+            ->where('user_id', $userId)
+            ->where('role', 'direksi')
+            ->whereIn('status', ['TERIMA', 'DIBATALKAN']);
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
 
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function ($q) use ($search) {
+            $query->whereHas('document', function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
                 ->orWhere('document_number', 'like', "%{$search}%");
             });
         }
 
-        $documents = $query->latest('updated_at')->get();
+        $approvals = $query->latest('updated_at')->get();
 
-        return view('app.dirut.riwayat', compact('documents'));
+        return view('app.dirut.riwayat', compact('approvals'));
     }
 
-    public function sign(Request $request, $id)
+    // Review SK oleh Direksi (Terima / Pending — tanpa Tolak)
+    public function review(Request $request, $id)
     {
         $request->validate([
-            'signed_pdf' => 'required|file|mimes:pdf',
-            'qr_hash' => 'required|string',
-            'placements' => 'nullable|string',
+            'status' => 'required|in:TERIMA,PENDING',
+            'comment' => 'nullable|string',
+            'signed_pdf' => 'nullable|file|mimes:pdf',
         ]);
 
-        $doc = Document::with('latestVersion')->findOrFail($id);
+        $userId = Auth::id() ?? $request->user_id;
 
-        if ($doc->status !== 'SIAP_TTD') {
-            return redirect()->route('app.dirut.dashboard')->with('error', 'Dokumen belum mendapat persetujuan 100% dari Validator!');
+        $approval = DocumentApproval::where('document_id', $id)
+            ->where('user_id', $userId)
+            ->where('role', 'direksi')
+            ->firstOrFail();
+
+        if ($approval->document->status !== 'DITINJAU_DIREKSI') {
+            return redirect()->route('app.dirut.dashboard')->with('error', 'Dokumen ini sudah tidak dalam status ditinjau Direksi, keputusan tidak disimpan.');
         }
 
-        $belumDitempel = $doc->approvals()
-            ->where('need_sign', true)
-            ->whereDoesntHave('signaturePlacement')
-            ->exists();
+        if ($approval->status !== 'MENUNGGU') {
+            return redirect()->route('app.dirut.dashboard')->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
+        }
 
-        $signedFile = $request->file('signed_pdf');
-        $safeDocNumber = Str::slug($doc->document_number);
-        $signedFileName = 'signed_' . $safeDocNumber . '_' . time() . '.pdf';
-        $signedRelativePath = 'documents/signed/' . $signedFileName;
-        Storage::disk('public')->put($signedRelativePath, file_get_contents($signedFile));
+        if ($request->filled('comment')) {
+            Comment::create([
+                'document_id' => $id,
+                'user_id' => $userId,
+                'comment' => $request->comment,
+            ]);
+        }
 
-        $fullPath = storage_path('app/public/' . $signedRelativePath);
+        if ($request->status === 'TERIMA' && $approval->need_sign) {
+            return redirect()->route('dirut.ttd.editor', $id);
+        }
+
+        $approval->update(['status' => $request->status]);
+
+        $doc = Document::with(['approvals', 'user'])->findOrFail($id);
+
+        if ($request->status === 'PENDING') {
+            $doc->update(['status' => 'PENDING_DIREKSI']);
+
+            ActivityLogger::log(
+                action: 'revisi',
+                description: Auth::user()->name . " (Direksi) meminta revisi SK \"{$doc->title}\"" . ($request->filled('comment') ? ": {$request->comment}" : ''),
+                documentId: $doc->id,
+                meta: ['comment' => $request->comment ?? null]
+            );
+
+            if ($doc->user) {
+                $this->waService->sendWaNotifAspri($doc->user, $doc, 'PENDING / PERLU REVISI DARI DIREKSI');
+                $this->fcmService->sendToUser(
+                    $doc->user,
+                    'Dokumen Perlu Revisi',
+                    "Dokumen \"{$doc->title}\" perlu direvisi sesuai catatan Direksi.",
+                    [
+                        'document_id' => (string) $doc->id,
+                        'type' => 'revisi',
+                        'url' => route('aspri.detail', $doc->id),
+                    ]
+                );
+            }
+        } else {
+            ActivityLogger::log(
+                action: 'setuju',
+                description: Auth::user()->name . " (Direksi) menyetujui SK \"{$doc->title}\"",
+                documentId: $doc->id
+            );
+
+            $flattenedPdfPath = null;
+            if ($request->hasFile('signed_pdf')) {
+                $signedFile = $request->file('signed_pdf');
+                $safeDocNumber = Str::slug($doc->document_number);
+                $tempSignedName = 'signed_' . $safeDocNumber . '_' . time() . '.pdf';
+                $flattenedPdfPath = 'documents/signed/' . $tempSignedName;
+                Storage::disk('public')->put($flattenedPdfPath, file_get_contents($signedFile));
+            }
+
+            $this->finalizeTerima($doc, $flattenedPdfPath);
+        }
+
+        return redirect()->route('app.dirut.dashboard')->with('success', 'Keputusan Anda berhasil disimpan!');
+    }
+
+    private function finalizeTerima(Document $doc, ?string $signedPdfPath = null /*, ?string $qrHash = null */)
+    {
+        $direksiApprovals = $doc->approvals->where('role', 'direksi');
+        $totalApprovals = $direksiApprovals->count();
+        $acceptedApprovals = $direksiApprovals->where('status', 'TERIMA')->count();
+
+        if ($totalApprovals !== $acceptedApprovals) {
+            if ($signedPdfPath) {
+                Storage::disk('public')->delete($signedPdfPath);
+            }
+            return;
+        }
+
+        if (!$signedPdfPath) {
+            $signedPdfPath = $doc->latestVersion->file_path;
+        }
+
+        $fullPath = storage_path('app/public/' . $signedPdfPath);
         $fileHash = hash_file('sha256', $fullPath);
 
-        // Simpan posisi TTD dirut ke signature_placements
-        if ($request->filled('placements')) {
-            $placements = json_decode($request->placements, true) ?? [];
-            foreach ($placements as $p) {
-                \App\Models\SignaturePlacement::create([
-                    'document_id' => $id,
-                    'document_approval_id' => null,
-                    'user_id' => Auth::id(),
-                    'page_number' => $p['page_number'],
-                    'x' => $p['x'],
-                    'y' => $p['y'],
-                    'width' => $p['width'],
-                    'height' => $p['height'],
-                    'signature_path' => Auth::user()->signature_path,
-                ]);
-            }
-        }
-
         $doc->update([
-            'status' => $belumDitempel ? 'DISETUJUI_TANPA_TTD' : 'DISETUJUI',
-            'qr_code_hash' => $request->qr_hash,
+            'status' => 'DISETUJUI',
+            'signed_file_path' => $signedPdfPath,
             'signed_at' => now(),
-            'signed_file_path' => $signedRelativePath,
             'file_hash' => $fileHash,
+            // 'qr_code_hash' => $qrHash ?? $doc->qr_code_hash, // TODO: aktifkan kalau fitur QR direksi sudah siap
         ]);
 
+        NotificationHistory::where('data->document_id', (string) $doc->id)->delete();
+
+        if ($doc->user) {
+            $this->waService->sendWaNotifAspri($doc->user, $doc, 'DISETUJUI');
+            $this->fcmService->sendToUser(
+                $doc->user,
+                'Dokumen Disetujui',
+                "Dokumen \"{$doc->title}\" telah disahkan oleh semua Direksi.",
+                [
+                    'document_id' => (string) $doc->id,
+                    'type' => 'disetujui',
+                    'url' => route('aspri.detail', $doc->id),
+                ]
+            );
+        }
+    }
+
+    public function showTtdEditor($id)
+    {
+        $approval = DocumentApproval::where('document_id', $id)
+            ->where('user_id', Auth::id())
+            ->where('role', 'direksi')
+            ->firstOrFail();
+
+        if (!$approval->need_sign) {
+            return redirect()->route('app.dirut.dashboard')->with('error', 'Kamu tidak butuh menempelkan TTD untuk dokumen ini.');
+        }
+
+        if ($approval->status !== 'MENUNGGU') {
+            return redirect()->route('app.dirut.dashboard')->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
+        }
+
+        if (!Auth::user()->signature_path) {
+            return redirect()->route('dirut.signature.page')->with('error', 'Silakan atur tanda tangan Anda terlebih dahulu.');
+        }
+
+        $document = Document::with(['latestVersion', 'signaturePlacements.user'])->findOrFail($id);
+
+        return view('app.dirut.ttd-editor', compact('document', 'approval'));
+    }
+
+    public function saveSignaturePlacement(Request $request, $id)
+    {
+        $request->validate([
+            'placements' => 'required|string',
+            'signed_pdf' => 'required|file|mimes:pdf',
+            //'qr_hash' => 'nullable|string',
+        ]);
+
+        $placements = json_decode($request->placements, true) ?? [];
+
+        $userId = Auth::id();
+
+        $approval = DocumentApproval::where('document_id', $id)
+            ->where('user_id', $userId)
+            ->where('role', 'direksi')
+            ->firstOrFail();
+
+        if ($approval->document->status !== 'DITINJAU_DIREKSI') {
+            return redirect()->route('app.dirut.dashboard')->with('error', 'Dokumen ini sudah tidak dalam status ditinjau Direksi, keputusan tidak disimpan.');
+        }
+
+        if ($approval->status !== 'MENUNGGU') {
+            return redirect()->route('app.dirut.dashboard')->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
+        }
+
+        foreach ($placements as $p) {
+            SignaturePlacement::create([
+                'document_id' => $id,
+                'document_approval_id' => $approval->id,
+                'user_id' => $userId,
+                'page_number' => $p['page_number'],
+                'x' => $p['x'],
+                'y' => $p['y'],
+                'width' => $p['width'],
+                'height' => $p['height'],
+                'signature_path' => Auth::user()->signature_path,
+            ]);
+        }
+
+        $approval->update(['status' => 'TERIMA']);
+
+        $doc = Document::with(['approvals', 'user'])->findOrFail($id);
+
         ActivityLogger::log(
-            action: 'tanda_tangan',
-            description: Auth::user()->name . " (Direksi) menandatangani SK \"{$doc->title}\"",
+            action: 'setuju_ttd',
+            description: Auth::user()->name . " (Direksi) menyetujui dan menandatangani SK \"{$doc->title}\"",
             documentId: $doc->id
         );
 
-        $doc->load('user');
-        if ($doc->user) {
-            if ($belumDitempel) {
-                $this->waService->sendWaNotifAspri($doc->user, $doc, 'DISAHKAN — MENUNGGU PENEMPELAN TTD VALIDATOR');
-                $this->fcmService->sendToUser(
-                    $doc->user,
-                    'Dokumen Disahkan, Perlu Ditempel TTD Validator',
-                    "Dokumen \"{$doc->title}\" sudah ditandatangani Direksi, namun masih ada TTD Validator yang perlu Anda tempelkan.",
-                    [
-                        'document_id' => (string) $doc->id,
-                        'type' => 'perlu_ttd_aspri',
-                        'url' => route('aspri.detail', $doc->id),
-                    ]
-                );
-            } else {
-                $this->waService->sendWaNotifAspri($doc->user, $doc, 'SELESAI & TELAH DITANDATANGANI (Sah)');
-                $this->fcmService->sendToUser(
-                    $doc->user,
-                    'Dokumen Selesai Ditandatangani',
-                    "Dokumen \"{$doc->title}\" telah sah ditandatangani oleh Direksi.",
-                    [
-                        'document_id' => (string) $doc->id,
-                        'type' => 'selesai_ttd',
-                        'url' => route('aspri.detail', $doc->id),
-                    ]
-                );
-            }
-        }
+        $signedFile = $request->file('signed_pdf');
+        $safeDocNumber = Str::slug($doc->document_number);
+        $tempSignedName = 'signed_' . $safeDocNumber . '_' . time() . '.pdf';
+        $tempSignedPath = 'documents/signed/' . $tempSignedName;
+        Storage::disk('public')->put($tempSignedPath, file_get_contents($signedFile));
 
-        $successMsg = $belumDitempel
-            ? 'Dokumen berhasil ditandatangani. Masih ada TTD Validator yang perlu ditempelkan Admin.'
-            : 'Dokumen SK berhasil ditandatangani dan disahkan!';
+        $this->finalizeTerima($doc, $tempSignedPath);
 
-        return redirect()->route('app.dirut.dashboard')->with('success', $successMsg);
+        return redirect()->route('app.dirut.dashboard')->with('success', 'Tanda tangan berhasil ditempatkan dan keputusan disimpan!');
     }
 
     public function showSignaturePage()
@@ -180,72 +326,48 @@ class SkController extends Controller
         return redirect()->route('app.dirut.dashboard')->with('success', 'Tanda tangan berhasil disimpan!');
     }
 
-    public function showTtdEditor($id)
-    {
-        $document = Document::with(['latestVersion', 'signaturePlacements.user'])->findOrFail($id);
-
-        if ($document->status !== 'SIAP_TTD') {
-            return redirect()->route('app.dirut.dashboard')->with('error', 'Dokumen ini belum siap untuk ditandatangani.');
-        }
-
-        if (!Auth::user()->signature_path) {
-            return redirect()->route('dirut.signature.page')->with('error', 'Silakan atur tanda tangan Anda terlebih dahulu.');
-        }
-
-        return view('app.dirut.ttd-editor', compact('document'));
-    }
-
     public function signWithoutSignature(Request $request, $id)
     {
-        $doc = Document::with('latestVersion')->findOrFail($id);
+        $userId = Auth::id() ?? $request->user_id;
 
-        if ($doc->status !== 'SIAP_TTD') {
-            return redirect()->back()->with('error', 'Dokumen belum mendapat persetujuan 100% dari Validator!');
+        $approval = DocumentApproval::where('document_id', $id)
+            ->where('user_id', $userId)
+            ->where('role', 'direksi')
+            ->firstOrFail();
+
+        if ($approval->document->status !== 'DITINJAU_DIREKSI') {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Dokumen ini sudah tidak dalam status ditinjau Direksi, keputusan tidak disimpan.'], 422);
+            }
+            return redirect()->route('app.dirut.dashboard')->with('error', 'Dokumen ini sudah tidak dalam status ditinjau Direksi, keputusan tidak disimpan.');
         }
 
-        // Salin PDF asli (belum ada TTD) sebagai placeholder signed_file_path
-        $originalPath = $doc->latestVersion->file_path;
-        $signedFileName = 'signed_' . $doc->document_number . '_' . time() . '.pdf';
-        $signedRelativePath = 'documents/signed/' . $signedFileName;
+        if ($approval->status !== 'MENUNGGU') {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.'], 422);
+            }
+            return redirect()->route('app.dirut.dashboard')->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
+        }
 
-        Storage::disk('public')->put(
-            $signedRelativePath,
-            Storage::disk('public')->get($originalPath)
-        );
+        $approval->update(['status' => 'TERIMA']);
 
-        $fullPath = storage_path('app/public/' . $signedRelativePath);
-        $fileHash = hash_file('sha256', $fullPath);
-
-        $doc->update([
-            'status' => 'DISETUJUI_TANPA_TTD',
-            'approved_without_signature_at' => now(),
-            'signed_file_path' => $signedRelativePath,
-            'file_hash' => $fileHash,
-        ]);
+        $doc = Document::with(['approvals', 'user'])->findOrFail($id);
 
         ActivityLogger::log(
-            action: 'sahkan_tanpa_ttd',
-            description: Auth::user()->name . " (Direksi) mengesahkan SK \"{$doc->title}\" tanpa tanda tangan",
+            action: 'setuju_tanpa_ttd',
+            description: Auth::user()->name . " (Direksi) menyetujui SK \"{$doc->title}\" dan menitipkan TTD ke Admin",
             documentId: $doc->id
         );
 
-        // Notif ke aspri: dokumen sah, tapi TTD belum ditempel — perlu aspri lengkapi
-        $doc->load('user');
-        if ($doc->user) {
-            $this->waService->sendWaNotifAspri($doc->user, $doc, 'DISAHKAN — MENUNGGU PENEMPELAN TTD');
+        $this->finalizeTerima($doc);
 
-            $this->fcmService->sendToUser(
-                $doc->user,
-                'Dokumen Disahkan, Perlu Ditempel TTD',
-                "Dokumen \"{$doc->title}\" sudah disahkan Direksi. Silakan tempelkan tanda tangan.",
-                [
-                    'document_id' => (string) $doc->id,
-                    'type' => 'perlu_ttd_aspri',
-                    'url' => route('aspri.detail', $doc->id), // sesuaikan kalau nanti ada route khusus
-                ]
-            );
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Dokumen disetujui tanpa tanda tangan. Admin akan menempelkan TTD Anda nanti.'
+            ]);
         }
 
-        return redirect()->route('app.dirut.dashboard')->with('success', 'Dokumen berhasil disahkan tanpa TTD. Aspri akan melengkapi tanda tangan.');
+        return redirect()->route('app.dirut.dashboard')->with('success', 'Dokumen disetujui tanpa tanda tangan. Admin akan menempelkan TTD Anda nanti.');
     }
 }

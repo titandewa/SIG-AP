@@ -28,7 +28,6 @@ class SkController extends Controller
         $this->waService = $waService;
     }
 
-    // Dashboard Validator Real
     public function index(Request $request)
     {
         $approvals = DocumentApproval::with([
@@ -39,6 +38,7 @@ class SkController extends Controller
                 'document.comments.user'
             ])
             ->where('user_id', Auth::id())
+            ->where('role', 'validator')
             ->whereHas('document', function ($q) {
                 $q->whereIn('status', ['DITINJAU', 'PENDING']);
             })
@@ -62,6 +62,7 @@ class SkController extends Controller
 
         $query = DocumentApproval::with(['document.user', 'document.latestVersion', 'document.approvals.user'])
             ->where('user_id', $userId)
+            ->where('role', 'validator')
             ->whereIn('status', ['TERIMA', 'TOLAK', 'DIBATALKAN']);
 
         if ($request->filled('status')) {
@@ -81,18 +82,19 @@ class SkController extends Controller
         return view('app.petinggi.riwayat', compact('approvals'));
     }
 
-    // Review SK oleh Validator (Terima / Pending / Tolak)
     public function review(Request $request, $id)
     {
         $request->validate([
             'status' => 'required|in:TERIMA,PENDING,TOLAK',
             'comment' => 'nullable|string',
+            'signed_pdf' => 'nullable|file|mimes:pdf',
         ]);
 
         $userId = Auth::id() ?? $request->user_id;
 
         $approval = DocumentApproval::where('document_id', $id)
             ->where('user_id', $userId)
+            ->where('role', 'validator')
             ->firstOrFail();
 
         if ($approval->document->status !== 'DITINJAU') {
@@ -103,7 +105,6 @@ class SkController extends Controller
             return redirect()->route('app.petinggi.dashboard')->with('error', 'Kamu sudah pernah memberikan keputusan untuk dokumen ini.');
         }
 
-        // Simpan komentar dulu (kalau ada), sebelum redirect ke TTD
         if ($request->filled('comment')) {
             Comment::create([
                 'document_id' => $id,
@@ -112,7 +113,6 @@ class SkController extends Controller
             ]);
         }
 
-        // Kalau TERIMA dan butuh TTD → jangan update status dulu, redirect ke halaman TTD
         if ($request->status === 'TERIMA' && $approval->need_sign) {
             return redirect()->route('petinggi.ttd.editor', $id);
         }
@@ -124,6 +124,7 @@ class SkController extends Controller
         if ($request->status === 'TOLAK') {
             $doc->update(['status' => 'DITOLAK']);
             DocumentApproval::where('document_id', $doc->id)
+                ->where('role', 'validator')
                 ->where('status', 'MENUNGGU')
                 ->update(['status' => 'DIBATALKAN']);
 
@@ -171,14 +172,22 @@ class SkController extends Controller
                 );
             }
         } else {
-            // status TERIMA dan need_sign = false
             ActivityLogger::log(
                 action: 'setuju',
                 description: Auth::user()->name . " (Validator) menyetujui SK \"{$doc->title}\"",
                 documentId: $doc->id
             );
 
-            $this->finalizeTerima($doc);
+            $flattenedPdfPath = null;
+            if ($request->hasFile('signed_pdf')) {
+                $signedFile = $request->file('signed_pdf');
+                $safeDocNumber = Str::slug($doc->document_number);
+                $tempSignedName = 'signed_' . $safeDocNumber . '_' . time() . '.pdf';
+                $flattenedPdfPath = 'documents/signed/' . $tempSignedName;
+                Storage::disk('public')->put($flattenedPdfPath, file_get_contents($signedFile));
+            }
+
+            $this->finalizeTerima($doc, $flattenedPdfPath);
         }
 
         return redirect()->route('app.petinggi.dashboard')->with('success', 'Keputusan Anda berhasil disimpan!');
@@ -186,19 +195,17 @@ class SkController extends Controller
 
     private function finalizeTerima(Document $doc, ?string $signedPdfPath = null)
     {
-        $totalApprovals = $doc->approvals->count();
-        $acceptedApprovals = $doc->approvals->where('status', 'TERIMA')->count();
+        $validatorApprovals = $doc->approvals->where('role', 'validator');
+        $totalApprovals = $validatorApprovals->count();
+        $acceptedApprovals = $validatorApprovals->where('status', 'TERIMA')->count();
 
         if ($totalApprovals !== $acceptedApprovals) {
-            // Belum selesai semua, file PDF sementara (kalau ada) tidak dipakai
             if ($signedPdfPath) {
                 Storage::disk('public')->delete($signedPdfPath);
             }
             return;
         }
 
-        // Kalau tidak ada file hasil tempel TTD sama sekali (tidak ada Validator yang need_sign),
-        // pakai dokumen asli dari Admin sebagai file final.
         if (!$signedPdfPath) {
             $signedPdfPath = $doc->latestVersion->file_path;
         }
@@ -233,24 +240,30 @@ class SkController extends Controller
             return;
         }
 
-        // Butuh direksi, file sementara tadi tidak dipakai (dirut yang flatten ulang nanti)
+        // Butuh direksi, file sementara tadi tidak dipakai (direksi yang flatten ulang nanti)
         if ($signedPdfPath !== $doc->latestVersion->file_path) {
             Storage::disk('public')->delete($signedPdfPath);
         }
 
-        $doc->update(['status' => 'SIAP_TTD']);
+        $doc->update(['status' => 'DITINJAU_DIREKSI']);
 
-        $dirut = User::where('id', $doc->dirut_id)->where('role', 'dirut')->first();
-        if ($dirut) {
-            $this->waService->sendWaNotifDirut($dirut, $doc);
+        $direksiApprovals = $doc->approvals()->where('role', 'direksi')->with('user')->get();
+
+        foreach ($direksiApprovals as $direksiApproval) {
+            $direksi = $direksiApproval->user;
+            if (!$direksi) {
+                continue;
+            }
+
+            $this->waService->sendWaNotifDirut($direksi, $doc);
             $this->fcmService->sendToUser(
-                $dirut,
-                'Dokumen Siap TTD',
-                "Dokumen \"{$doc->title}\" telah disetujui semua Validator dan siap ditandatangani.",
+                $direksi,
+                'Dokumen Siap Ditinjau',
+                "Dokumen \"{$doc->title}\" telah disetujui semua Validator dan menunggu keputusan Direksi.",
                 [
                     'document_id' => (string) $doc->id,
-                    'type' => 'siap_ttd',
-                    'url' => route('dirut.ttd.editor', $doc->id),
+                    'type' => 'ditinjau_direksi',
+                    'url' => route('app.dirut.dashboard', ['doc' => $doc->id]),
                 ]
             );
         }
@@ -260,6 +273,7 @@ class SkController extends Controller
     {
         $approval = DocumentApproval::where('document_id', $id)
             ->where('user_id', Auth::id())
+            ->where('role', 'validator')
             ->firstOrFail();
 
         if (!$approval->need_sign) {
@@ -292,6 +306,7 @@ class SkController extends Controller
 
         $approval = DocumentApproval::where('document_id', $id)
             ->where('user_id', $userId)
+            ->where('role', 'validator')
             ->firstOrFail();
 
         if ($approval->document->status !== 'DITINJAU') {
@@ -326,7 +341,6 @@ class SkController extends Controller
             documentId: $doc->id
         );
 
-        // Simpan PDF hasil flatten dari browser dulu (sementara), baru dipakai kalau ini penyelesaian
         $signedFile = $request->file('signed_pdf');
         $safeDocNumber = Str::slug($doc->document_number);
         $tempSignedName = 'signed_' . $safeDocNumber . '_' . time() . '.pdf';
@@ -374,6 +388,7 @@ class SkController extends Controller
 
         $approval = DocumentApproval::where('document_id', $id)
             ->where('user_id', $userId)
+            ->where('role', 'validator')
             ->firstOrFail();
 
         if ($approval->document->status !== 'DITINJAU') {
@@ -402,7 +417,6 @@ class SkController extends Controller
 
         $this->finalizeTerima($doc);
 
-        // Jika request dari Fetch/AJAX, kembalikan JSON agar tidak redirect loop
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true, 

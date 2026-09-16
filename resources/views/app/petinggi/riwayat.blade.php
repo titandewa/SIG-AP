@@ -41,12 +41,17 @@
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
                     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                         <div>
-                            <x-status-badge :status="$app->document->status" />
+                            <x-status-badge :status="$app->document->display_status" />
                             <h3 class="font-bold text-slate-800 text-base mt-1">{{ $app->document->title }}</h3>
                             <p class="text-xs text-slate-500">
                                 No: {{ $app->document->document_number }} • Administrator: {{ $app->document->user->name ?? '-' }}
                                 • Diajukan: {{ $app->document->created_at->translatedFormat('d F Y, H:i') }}
                             </p>
+                            @if($app->document->pending_parties_label)
+                                <p class="text-[11px] text-slate-400 mt-1">
+                                    <i class="fa-solid fa-hourglass-half mr-1"></i>{{ $app->document->pending_parties_label }}
+                                </p>
+                            @endif
                         </div>
 
                         <p class="text-[11px] text-slate-400 shrink-0">

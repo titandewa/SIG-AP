@@ -12,6 +12,15 @@
     </style>
     @include('partials.fcm-notif')
 
+    @php
+        // Dokumen yang otomatis di-preview saat halaman pertama kali dibuka:
+        // cuma yang statusnya MENUNGGU (belum kamu putuskan). Kalau semua
+        // dokumen sudah direspon (atau memang belum ada dokumen sama sekali),
+        // area preview cukup tampilkan keterangan teks, tidak buka PDF apapun.
+        $initialPendingApp = $approvals->firstWhere('status', 'MENUNGGU');
+        $hasInitialPreview = $initialPendingApp && $initialPendingApp->document->latestVersion;
+    @endphp
+
 <div class="flex flex-col lg:h-[calc(100vh-64px)] -m-3 sm:-m-5 lg:-m-8 lg:overflow-hidden">
     <!-- Bar khusus toggle daftar dokumen (mobile only) -->
     <div class="lg:hidden bg-[#021b41] border-b border-[#021b41] px-4 py-2.5 flex items-center justify-between shrink-0">
@@ -52,7 +61,7 @@
                     <button onclick="selectDocument({{ $app->document_id }})" id="listitem-{{ $app->document_id }}"
                         class="doc-list-item w-full text-left p-3 rounded-xl border transition
                         {{ $isDecided ? 'opacity-60' : '' }}
-                        {{ $loop->first ? 'bg-[#4DA8FF]/10 border-[#4DA8FF]' : 'bg-[#021b41]/55 border-[#021b41] hover:border-[#4DA8FF]/60 hover:bg-[#4DA8FF]/5' }}">
+                        {{ ($initialPendingApp && $initialPendingApp->id === $app->id) ? 'bg-[#4DA8FF]/10 border-[#4DA8FF]' : 'bg-[#021b41]/55 border-[#021b41] hover:border-[#4DA8FF]/60 hover:bg-[#4DA8FF]/5' }}">
                         <div class="flex justify-between items-start gap-2">
                             <p class="font-semibold text-white text-xs leading-snug line-clamp-2">{{ $app->document->title }}</p>
                             <x-approval-status-badge :status="$app->status" />
@@ -74,38 +83,44 @@
             <div class="p-3 sm:p-4 border-b border-slate-200 flex justify-between items-center gap-3 shrink-0 flex-wrap">
                 <div class="min-w-0">
                     <h2 id="previewTitle" class="font-bold text-slate-900 text-sm truncate">
-                        {{ $approvals->first()->document->title ?? 'Belum ada dokumen' }}
+                        {{ $initialPendingApp->document->title ?? 'Tidak ada dokumen menunggu keputusan' }}
                     </h2>
                     <p class="text-xs text-slate-500 truncate">
-                        No: <span id="previewNumber">{{ $approvals->first()->document->document_number ?? '-' }}</span> •
-                        <span id="previewPengaju">{{ $approvals->first()->document->user->name ?? '-' }}</span>
+                        @if($initialPendingApp)
+                            No: <span id="previewNumber">{{ $initialPendingApp->document->document_number }}</span> •
+                            <span id="previewPengaju">{{ $initialPendingApp->document->user->name ?? '-' }}</span>
+                        @else
+                            <span id="previewNumber"></span><span id="previewPengaju"></span>
+                        @endif
                     </p>
                 </div>
-                @if($approvals->first() && $approvals->first()->document->latestVersion)
-                    <div class="flex items-center gap-2 shrink-0 flex-wrap">
-                        <select id="versionSelect" onchange="switchVersion(this.value)"
-                            class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-500 max-w-[140px] sm:max-w-none">
-                        </select>
-                        <button id="prevPageBtn" onclick="changePreviewPage(-1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition">
-                            <i class="fa-solid fa-chevron-up"></i>
-                        </button>
-                        <span id="previewPageInfo" class="text-xs text-slate-500 min-w-[50px] text-center">- / -</span>
-                        <button id="nextPageBtn" onclick="changePreviewPage(1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition">
-                            <i class="fa-solid fa-chevron-down"></i>
-                        </button>
-                    </div>
-                @endif
+                <div id="previewPagerControls" class="flex items-center gap-2 shrink-0 flex-wrap {{ $hasInitialPreview ? '' : 'hidden' }}">
+                    <select id="versionSelect" onchange="switchVersion(this.value)"
+                        class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-500 max-w-[140px] sm:max-w-none">
+                    </select>
+                    <button id="prevPageBtn" onclick="changePreviewPage(-1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition">
+                        <i class="fa-solid fa-chevron-up"></i>
+                    </button>
+                    <span id="previewPageInfo" class="text-xs text-slate-500 min-w-[50px] text-center">- / -</span>
+                    <button id="nextPageBtn" onclick="changePreviewPage(1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition">
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- Tinggi preview dibatasi di HP (55vh) supaya tombol & chat di bawahnya tetap kelihatan tanpa scroll jauh -->
             <div id="previewViewport" class="h-[55vh] lg:flex-1 lg:h-auto lg:min-h-0 bg-slate-200 flex justify-center items-center p-3 sm:p-6 overflow-hidden">
-                @if($approvals->first() && $approvals->first()->document->latestVersion)
-                    <canvas id="previewCanvas" class="shadow-md bg-white"></canvas>
-                @else
-                    <div class="text-slate-400 text-sm text-center">
-                        <i class="fa-solid fa-file-circle-xmark text-3xl mb-2 block"></i> Tidak ada berkas untuk ditampilkan.
-                    </div>
-                @endif
+                <canvas id="previewCanvas" class="shadow-md bg-white {{ $hasInitialPreview ? '' : 'hidden' }}"></canvas>
+                <div id="previewPlaceholder" class="text-slate-400 text-sm text-center {{ $hasInitialPreview ? 'hidden' : '' }}">
+                    <i class="fa-solid fa-clipboard-check text-3xl mb-2 block"></i>
+                    <p>
+                        @if($approvals->isEmpty())
+                            Belum ada dokumen baru untuk ditinjau.
+                        @else
+                            Semua dokumen sudah kamu berikan tanggapan.
+                        @endif
+                    </p>
+                </div>
             </div>
         </main>
 
@@ -125,8 +140,9 @@
                         // kirim komentar khusus untuk dokumen ini. $app->document->comments
                         // sudah otomatis ter-scope ke document_id ini saja.
                         $hasCommented = $app->document->comments->where('user_id', auth()->id())->count() > 0;
+                        $isInitial = $initialPendingApp && $initialPendingApp->id === $app->id;
                     @endphp
-                    <div id="panel-{{ $app->document_id }}" class="doc-panel space-y-3 {{ $loop->first ? '' : 'hidden' }}">
+                    <div id="panel-{{ $app->document_id }}" class="doc-panel space-y-3 {{ $isInitial ? '' : 'hidden' }}">
 
                         <!-- Status semua Validator yang ditugaskan untuk dokumen ini -->
                         <div class="bg-slate-50 rounded-lg p-3 space-y-2 border border-slate-200">
@@ -248,6 +264,7 @@
             'pengaju' => $app->document->user->name ?? '-',
             'file_url' => $app->document->latestVersion ? asset('storage/' . $app->document->latestVersion->file_path) : null,
             'versions' => $versionsForJs,
+            'status' => $app->status,
             'needSign' => (bool) $app->need_sign,
             'siblingsAllTerima' => $siblingsAllTerima,
             'existingPlacements' => $existingPlacementsForJs,
@@ -267,8 +284,20 @@
     let previewCurrentPage = 1;
     let previewTotalPages = 0;
 
+    function showPreviewPlaceholder() {
+        const canvas = document.getElementById('previewCanvas');
+        const placeholder = document.getElementById('previewPlaceholder');
+        const pagerControls = document.getElementById('previewPagerControls');
+        if (canvas) canvas.classList.add('hidden');
+        if (placeholder) placeholder.classList.remove('hidden');
+        if (pagerControls) pagerControls.classList.add('hidden');
+    }
+
     async function loadPreviewPdf(url) {
-        if (!url) return;
+        if (!url) {
+            showPreviewPlaceholder();
+            return;
+        }
         if (!window.pdfjsLib) {
             const viewport = document.getElementById('previewViewport');
             if (viewport) {
@@ -278,10 +307,15 @@
         }
         const viewport = document.getElementById('previewViewport');
         const canvas = document.getElementById('previewCanvas');
+        const placeholder = document.getElementById('previewPlaceholder');
+        const pagerControls = document.getElementById('previewPagerControls');
         const pageInfo = document.getElementById('previewPageInfo');
 
         if (viewport) viewport.classList.add('bg-slate-200');
+        if (placeholder) placeholder.classList.add('hidden');
+        if (canvas) canvas.classList.remove('hidden');
         if (canvas) canvas.style.display = 'block';
+        if (pagerControls) pagerControls.classList.remove('hidden');
         if (pageInfo) pageInfo.textContent = '- / -';
 
         try {
@@ -423,18 +457,20 @@
         document.getElementById('mobileBackdrop').classList.add('hidden');
     }
 
-    if (reviewDocuments.length > 0) {
-        populateVersionDropdown(reviewDocuments[0]);
-        loadPreviewPdf(reviewDocuments[0].file_url);
+    // Auto-preview: kalau ada dokumen yang di-fokus lewat notifikasi (?doc=),
+    // buka itu apa pun statusnya. Kalau tidak, hanya auto-buka dokumen
+    // pertama yang statusnya MENUNGGU. Kalau semua sudah direspon (atau
+    // memang belum ada dokumen), biarkan placeholder teks yang tampil,
+    // tidak ada PDF yang otomatis dibuka.
+    const focusDocId = @json($focusDocId ?? null);
+    const focusDoc = focusDocId ? reviewDocuments.find(d => d.id === parseInt(focusDocId)) : null;
 
-        const focusDocId = @json($focusDocId ?? null);
-        const focusDoc = focusDocId ? reviewDocuments.find(d => d.id === parseInt(focusDocId)) : null;
-
-        if (focusDoc) {
-            selectDocument(focusDoc.id);
-        } else if (reviewDocuments.length > 0) {
-            populateVersionDropdown(reviewDocuments[0]);
-            loadPreviewPdf(reviewDocuments[0].file_url);
+    if (focusDoc) {
+        selectDocument(focusDoc.id);
+    } else {
+        const firstPending = reviewDocuments.find(d => d.status === 'MENUNGGU');
+        if (firstPending) {
+            selectDocument(firstPending.id);
         }
     }
 </script>

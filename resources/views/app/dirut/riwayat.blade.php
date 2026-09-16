@@ -34,13 +34,18 @@
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
                     <div class="flex justify-between items-start gap-3">
                         <div class="min-w-0">
-                            <x-status-badge :status="$document->status" />
+                            <x-status-badge :status="$document->display_status" />
                             <h3 class="font-bold text-slate-800 text-base mt-1">{{ $document->title }}</h3>
                             <p class="text-xs text-slate-500">
                                 No: {{ $document->document_number }} • Administrator: {{ $document->user->name ?? '-' }}
                                 • Keputusanmu: <x-approval-status-badge :status="$approval->status" />
                                 • {{ $approval->updated_at->translatedFormat('d F Y, H:i') }}
                             </p>
+                            @if($document->pending_parties_label)
+                                <p class="text-[11px] text-slate-400 mt-1">
+                                    <i class="fa-solid fa-hourglass-half mr-1"></i>{{ $document->pending_parties_label }}
+                                </p>
+                            @endif
                         </div>
                     </div>
 

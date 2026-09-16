@@ -167,7 +167,15 @@ class SkController extends Controller
         return redirect()->route('app.dirut.dashboard')->with('success', 'Keputusan Anda berhasil disimpan!');
     }
 
-    private function finalizeTerima(Document $doc, ?string $signedPdfPath = null /*, ?string $qrHash = null */)
+    /**
+     * Finalisasi dokumen setelah semua Direksi menyetujui.
+     *
+     * @param Document $doc
+     * @param string|null $signedPdfPath Path PDF yang sudah ditandatangani (jika ada).
+     * @param bool $withoutSignature True jika Direksi menyetujui TANPA menempel TTD
+     *                               (TTD dititipkan ke Admin untuk ditempel nanti).
+     */
+    private function finalizeTerima(Document $doc, ?string $signedPdfPath = null, bool $withoutSignature = false)
     {
         $direksiApprovals = $doc->approvals->where('role', 'direksi');
         $totalApprovals = $direksiApprovals->count();
@@ -180,6 +188,32 @@ class SkController extends Controller
             return;
         }
 
+        // Kasus: disetujui tapi TTD dititipkan ke Admin -> BELUM final.
+        if ($withoutSignature) {
+            $doc->update([
+                'status' => 'DISETUJUI_TANPA_TTD',
+            ]);
+
+            NotificationHistory::where('data->document_id', (string) $doc->id)->delete();
+
+            if ($doc->user) {
+                $this->waService->sendWaNotifAspri($doc->user, $doc, 'DISETUJUI_TANPA_TTD');
+                $this->fcmService->sendToUser(
+                    $doc->user,
+                    'Dokumen Disetujui (Menunggu TTD)',
+                    "Dokumen \"{$doc->title}\" telah disetujui oleh semua Direksi dan menunggu penempelan TTD oleh Admin.",
+                    [
+                        'document_id' => (string) $doc->id,
+                        'type' => 'disetujui_tanpa_ttd',
+                        'url' => route('aspri.detail', $doc->id),
+                    ]
+                );
+            }
+
+            return;
+        }
+
+        // Kasus normal: sudah ada TTD (baik dari flow review biasa maupun ttd-editor).
         if (!$signedPdfPath) {
             $signedPdfPath = $doc->latestVersion->file_path;
         }
@@ -192,7 +226,6 @@ class SkController extends Controller
             'signed_file_path' => $signedPdfPath,
             'signed_at' => now(),
             'file_hash' => $fileHash,
-            // 'qr_code_hash' => $qrHash ?? $doc->qr_code_hash, // TODO: aktifkan kalau fitur QR direksi sudah siap
         ]);
 
         NotificationHistory::where('data->document_id', (string) $doc->id)->delete();
@@ -359,7 +392,7 @@ class SkController extends Controller
             documentId: $doc->id
         );
 
-        $this->finalizeTerima($doc);
+        $this->finalizeTerima($doc, null, true);
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([

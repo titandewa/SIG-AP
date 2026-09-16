@@ -2,7 +2,18 @@
 
 @php
     $notifications = auth()->check()
-        ? auth()->user()->notificationHistories()->whereNull('read_at')->latest()->take(5)->get()
+        ? auth()->user()->notificationHistories()
+            ->whereNull('read_at')
+            ->latest()
+            ->take(20)
+            ->get()
+            ->filter(function ($n) {
+                $docId = $n->data['document_id'] ?? null;
+                if (!$docId) return true;
+                $doc = \App\Models\Document::find($docId);
+                return !$doc || !in_array($doc->status, ['DISETUJUI', 'DITOLAK']);
+            })
+            ->take(5)
         : collect();
 @endphp
 

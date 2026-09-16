@@ -121,21 +121,23 @@
                 <p class="text-xs font-semibold text-slate-600 mb-2">Kotak isian wajib diisi</p>
 
                 <div class="space-y-2" id="signerSourceList">
-                    <!-- Kartu TTD Dirut -->
-                    @if(!$dirutAlreadySigned)
-                    <div class="drag-signature-source flex items-center gap-2 border border-slate-200 rounded-xl p-2 cursor-grab active:cursor-grabbing hover:border-emerald-300 hover:bg-emerald-50/50 transition select-none touch-none"
-                        data-user-id="{{ $dirut->id ?? '' }}"
-                        data-name="{{ $dirut->name ?? 'Direksi' }}"
-                        data-signature="{{ asset('storage/' . $dirut->signature_path) }}">
-                        <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                            <i class="fa-solid fa-pen-nib"></i>
-                        </span>
-                        <div class="min-w-0">
-                            <p class="text-[10px] font-semibold text-emerald-600 leading-tight">Tanda tangan {{ $dirut->name ?? 'Direksi' }}</p>
-                            <img src="{{ asset('storage/' . $dirut->signature_path) }}" class="h-6 object-contain" draggable="false">
-                        </div>
-                    </div>
-                    @endif
+                    <!-- Kartu TTD Direksi (bisa lebih dari satu) -->
+                    @isset($pendingDireksi)
+                        @foreach($pendingDireksi as $approval)
+                            <div class="drag-signature-source flex items-center gap-2 border border-slate-200 rounded-xl p-2 cursor-grab active:cursor-grabbing hover:border-emerald-300 hover:bg-emerald-50/50 transition select-none touch-none"
+                                data-user-id="{{ $approval->user->id }}"
+                                data-name="{{ $approval->user->name }}"
+                                data-signature="{{ asset('storage/' . $approval->user->signature_path) }}">
+                                <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                                    <i class="fa-solid fa-pen-nib"></i>
+                                </span>
+                                <div class="min-w-0">
+                                    <p class="text-[10px] font-semibold text-emerald-600 leading-tight">Tanda tangan {{ $approval->user->name }}</p>
+                                    <img src="{{ asset('storage/' . $approval->user->signature_path) }}" class="h-6 object-contain" draggable="false">
+                                </div>
+                            </div>
+                        @endforeach
+                    @endisset
 
                     <!-- Kartu TTD petinggi/validator yang approve tanpa TTD -->
                     @isset($pendingValidators)
@@ -173,7 +175,6 @@
         }
 
         const pdfUrl = "{{ asset('storage/' . $pdfSourcePath) }}";
-        const dirutUserId = "{{ $dirutAlreadySigned ? '' : ($dirut->id ?? '') }}";
 
         let originalPdfBytes = null;
         let pdfDocInstance = null;
@@ -679,13 +680,6 @@
             });
         }
 
-        function generateRandomHash() {
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-            let result = 'SIGAP-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-';
-            for (let i = 0; i < 8; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-            return result;
-        }
-
         const signatureBytesCache = new Map();
         async function getSignatureBytes(url) {
             if (signatureBytesCache.has(url)) return signatureBytesCache.get(url);
@@ -705,13 +699,8 @@
             submitBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Memproses...';
 
             try {
-                const qrHash = generateRandomHash();
-                const verifyUrl = "{{ url('/verify') }}/" + qrHash;
-                const qrApiUrl = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + encodeURIComponent(verifyUrl);
-                const qrImageBytes = await fetch(qrApiUrl).then(res => res.arrayBuffer());
-
+                // QR code dinonaktifkan sementara.
                 const pdfDoc = await PDFLib.PDFDocument.load(originalPdfBytes, { ignoreEncryption: true });
-                const pngQr = await pdfDoc.embedPng(qrImageBytes);
                 const pages = pdfDoc.getPages();
 
                 const signedByUserIds = [];
@@ -739,13 +728,6 @@
 
                     targetPage.drawImage(pngSignature, { x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight });
 
-                    if (String(inst.userId) === String(dirutUserId)) {
-                        const qrSize = Math.min(pdfHeight, 40);
-                        const qrX = pdfX + pdfWidth + 8;
-                        const qrY = pdfY + (pdfHeight - qrSize) / 2;
-                        targetPage.drawImage(pngQr, { x: qrX, y: qrY, width: qrSize, height: qrSize });
-                    }
-
                     if (inst.userId) signedByUserIds.push(inst.userId);
                 }
 
@@ -767,7 +749,6 @@
                 const formData = new FormData();
                 const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
                 formData.append('signed_pdf', blob, 'signed.pdf');
-                formData.append('qr_hash', qrHash);
                 formData.append('signed_by_user_ids', JSON.stringify(signedByUserIds));
                 formData.append('_token', '{{ csrf_token() }}');
 

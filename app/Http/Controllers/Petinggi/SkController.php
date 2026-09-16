@@ -128,6 +128,8 @@ class SkController extends Controller
                 ->where('status', 'MENUNGGU')
                 ->update(['status' => 'DIBATALKAN']);
 
+            NotificationHistory::where('data->document_id', (string) $doc->id)->delete();
+
             ActivityLogger::log(
                 action: 'tolak',
                 description: Auth::user()->name . " (Validator) menolak SK \"{$doc->title}\"" . ($request->filled('comment') ? ": {$request->comment}" : ''),

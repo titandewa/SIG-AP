@@ -93,11 +93,22 @@ class DocumentController extends Controller
             abort(403, 'Kamu tidak punya akses ke diskusi dokumen ini.');
         }
 
-        Comment::create([
+        $comment = Comment::create([
             'document_id' => $document->id,
             'user_id' => $userId,
             'comment' => $request->comment,
         ]);
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'comment' => [
+                    'id' => $comment->id,
+                    'comment' => $comment->comment,
+                    'created_at' => $comment->created_at->diffForHumans(),
+                ],
+            ]);
+        }
 
         return redirect()->back()->with('success', 'Pesan terkirim.');
     }

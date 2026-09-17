@@ -38,11 +38,6 @@
         </div>
     @endif
 
-    @php
-        // Semua approval tetap ditampilkan (bukan cuma yang MENUNGGU). Controller sudah
-        // mengurutkan: MENUNGGU (belum diputuskan) di atas, sudah diputuskan di bawah.
-    @endphp
-
     <!-- Backdrop mobile (hanya untuk drawer list dokumen) -->
     <div id="mobileBackdrop" onclick="closeAllPanels()" class="hidden fixed inset-0 bg-[#021b41]/50 z-20 lg:hidden"></div>
 
@@ -162,25 +157,29 @@
                             @endforeach
                         </div>
 
-                        @if($app->document->comments->count() > 0)
-                            <div class="bg-slate-50 rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto border border-slate-200">
-                                @foreach($app->document->comments as $comment)
-                                    @php $isMine = $comment->user_id === auth()->id(); @endphp
-                                    <div class="flex {{ $isMine ? 'justify-end' : 'justify-start' }}">
-                                        <div class="max-w-[80%] {{ $isMine ? 'bg-[#4DA8FF] text-white' : 'bg-white border border-slate-200 text-slate-700' }} rounded-lg px-3 py-2">
-                                            <p class="text-[11px] leading-snug">{{ $comment->comment }}</p>
-                                            <p class="text-[9px] mt-1 {{ $isMine ? 'text-white/80' : 'text-slate-400' }}">
-                                                {{ $isMine ? 'Kamu' : ($comment->user->name ?? 'User') }} • {{ $comment->created_at->diffForHumans() }}
-                                            </p>
-                                        </div>
+                        <!-- Box komentar SELALU ada di DOM (walau kosong) supaya JS bisa
+                             nambahin bubble baru tanpa reload halaman -->
+                        <div id="commentsBox-{{ $app->document_id }}"
+                            class="bg-slate-50 rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto border border-slate-200 {{ $app->document->comments->count() > 0 ? '' : 'hidden' }}">
+                            @foreach($app->document->comments as $comment)
+                                @php $isMine = $comment->user_id === auth()->id(); @endphp
+                                <div class="flex {{ $isMine ? 'justify-end' : 'justify-start' }}">
+                                    <div class="max-w-[80%] {{ $isMine ? 'bg-[#4DA8FF] text-white' : 'bg-white border border-slate-200 text-slate-700' }} rounded-lg px-3 py-2">
+                                        <p class="text-[11px] leading-snug">{{ $comment->comment }}</p>
+                                        <p class="text-[9px] mt-1 {{ $isMine ? 'text-white/80' : 'text-slate-400' }}">
+                                            {{ $isMine ? 'Kamu' : ($comment->user->name ?? 'User') }} • {{ $comment->created_at->diffForHumans() }}
+                                        </p>
                                     </div>
-                                @endforeach
-                            </div>
-                        @endif
+                                </div>
+                            @endforeach
+                        </div>
 
-                        <form action="{{ route('document.comment', $app->document_id) }}" method="POST" class="flex items-center gap-2">
+                        <form id="commentForm-{{ $app->document_id }}"
+                            action="{{ route('document.comment', $app->document_id) }}" method="POST"
+                            onsubmit="return submitComment(event, {{ $app->document_id }})"
+                            class="flex items-center gap-2">
                             @csrf
-                            <input type="text" name="comment" placeholder="Tulis pesan..." required autocomplete="off"
+                            <input type="text" name="comment" id="commentInput-{{ $app->document_id }}" placeholder="Tulis pesan..." required autocomplete="off"
                                 class="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4DA8FF] transition">
                             <button type="submit" class="shrink-0 w-9 h-9 rounded-lg bg-[#4DA8FF] hover:brightness-110 text-white flex items-center justify-center transition">
                                 <i class="fa-solid fa-paper-plane text-xs"></i>
@@ -195,7 +194,7 @@
                                         class="px-2 sm:px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1">
                                         <i class="fa-solid fa-check hidden sm:inline"></i> <span>Setujui</span>
                                     </button>
-                                    <button type="button" {{ !$hasCommented ? 'disabled' : '' }}
+                                    <button type="button" id="revisiBtn-{{ $app->document_id }}" {{ !$hasCommented ? 'disabled' : '' }}
                                         onclick="askConfirm(this.closest('form'), 'PENDING', 'meminta REVISI (Pastikan poin revisi telah dicantumkan pada kolom komentar sebelum melanjutkan)')"
                                         class="px-2 sm:px-3 py-2 text-white text-[11px] sm:text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1
                                         {{ $hasCommented ? 'bg-amber-600 hover:bg-amber-500' : 'bg-slate-300 opacity-50 cursor-not-allowed' }}">
@@ -211,7 +210,7 @@
                                     --}}
                                 </div>
                                 @if(!$hasCommented)
-                                    <p class="text-[10px] text-amber-500 text-center mt-1">
+                                    <p id="revisiLockMsg-{{ $app->document_id }}" class="text-[10px] text-amber-500 text-center mt-1">
                                         <i class="fa-solid fa-lock mr-1"></i>Kirim pesan dulu untuk membuka tombol Revisi/Tolak.
                                     </p>
                                 @endif
@@ -455,6 +454,84 @@
         list.classList.add('hidden');
         list.classList.remove('flex');
         document.getElementById('mobileBackdrop').classList.add('hidden');
+    }
+
+    // ===== Kirim komentar via AJAX, tanpa reload halaman =====
+    async function submitComment(event, docId) {
+        event.preventDefault();
+
+        const form = document.getElementById(`commentForm-${docId}`);
+        const input = document.getElementById(`commentInput-${docId}`);
+        const text = input.value.trim();
+        if (!text) return false;
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            const formData = new FormData();
+            formData.append('comment', text);
+
+            const res = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                },
+                body: formData,
+            });
+
+            if (!res.ok) throw new Error('Gagal mengirim pesan');
+            const data = await res.json();
+
+            appendCommentBubble(docId, data.comment);
+            input.value = '';
+            unlockRevisiButton(docId);
+        } catch (err) {
+            console.error(err);
+            showAlertModal('Gagal mengirim pesan, coba lagi.');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+        }
+
+        return false;
+    }
+
+    function appendCommentBubble(docId, comment) {
+        const box = document.getElementById(`commentsBox-${docId}`);
+        if (!box) return;
+        box.classList.remove('hidden');
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex justify-end';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'max-w-[80%] bg-[#4DA8FF] text-white rounded-lg px-3 py-2';
+
+        const textEl = document.createElement('p');
+        textEl.className = 'text-[11px] leading-snug';
+        textEl.textContent = comment.comment;
+
+        const metaEl = document.createElement('p');
+        metaEl.className = 'text-[9px] mt-1 text-white/80';
+        metaEl.textContent = 'Kamu • ' + (comment.created_at || 'baru saja');
+
+        bubble.appendChild(textEl);
+        bubble.appendChild(metaEl);
+        wrapper.appendChild(bubble);
+        box.appendChild(wrapper);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function unlockRevisiButton(docId) {
+        const btn = document.getElementById(`revisiBtn-${docId}`);
+        if (btn) {
+            btn.disabled = false;
+            btn.classList.remove('bg-slate-300', 'opacity-50', 'cursor-not-allowed');
+            btn.classList.add('bg-amber-600', 'hover:bg-amber-500');
+        }
+        const lockMsg = document.getElementById(`revisiLockMsg-${docId}`);
+        if (lockMsg) lockMsg.classList.add('hidden');
     }
 
     // Auto-preview: kalau ada dokumen yang di-fokus lewat notifikasi (?doc=),

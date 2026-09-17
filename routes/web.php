@@ -120,6 +120,10 @@ Route::middleware(['auth'])->group(function () {
     })->name('dashboard');
 
     Route::post('/app/document/{id}/comment', [DocumentController::class, 'addComment'])->name('document.comment');
+    Route::get('/app/document/{id}/comments', [DocumentController::class, 'fetchComments'])->name('document.comments.fetch');
+    Route::post('/app/document/{id}/comments/read', [DocumentController::class, 'markCommentsRead'])->name('document.comments.read');
+    Route::get('/app/documents/unread-counts', [DocumentController::class, 'unreadCommentCounts'])->name('document.comments.unread-counts');
+
     Route::get('/notifications/history', [App\Http\Controllers\NotificationHistoryController::class, 'index'])->name('notifications.history');
     Route::post('/notifications/{id}/read', [NotificationHistoryController::class, 'markRead'])->name('notifications.read');
     Route::post('/notifications/clear', [NotificationHistoryController::class, 'clearAll'])->name('notifications.clear');

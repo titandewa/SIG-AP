@@ -77,6 +77,20 @@ class DocumentController extends Controller
         return redirect()->back()->with('success', 'Reminder terkirim ke: ' . implode(', ', $terkirim));
     }
 
+    /**
+     * Pastikan user yang sedang login berhak akses diskusi dokumen ini
+     * (pemilik dokumen atau salah satu reviewer-nya).
+     */
+    private function assertCanAccessDiscussion(Document $document, int $userId): void
+    {
+        $isOwner = $document->user_id === $userId;
+        $isReviewer = $document->approvals->contains('user_id', $userId);
+
+        if (!$isOwner && !$isReviewer) {
+            abort(403, 'Kamu tidak punya akses ke diskusi dokumen ini.');
+        }
+    }
+
     public function addComment(Request $request, $id)
     {
         $request->validate([
@@ -86,12 +100,7 @@ class DocumentController extends Controller
         $document = Document::with('approvals')->findOrFail($id);
         $userId = Auth::id();
 
-        $isOwner = $document->user_id === $userId;
-        $isReviewer = $document->approvals->contains('user_id', $userId);
-
-        if (!$isOwner && !$isReviewer) {
-            abort(403, 'Kamu tidak punya akses ke diskusi dokumen ini.');
-        }
+        $this->assertCanAccessDiscussion($document, $userId);
 
         $comment = Comment::create([
             'document_id' => $document->id,
@@ -111,5 +120,87 @@ class DocumentController extends Controller
         }
 
         return redirect()->back()->with('success', 'Pesan terkirim.');
+    }
+
+    /**
+     * Ambil semua komentar suatu dokumen (dipakai untuk polling, biar pesan
+     * baru dari orang lain muncul tanpa reload halaman).
+     */
+    public function fetchComments($id)
+    {
+        $document = Document::with('approvals')->findOrFail($id);
+        $userId = Auth::id();
+
+        $this->assertCanAccessDiscussion($document, $userId);
+
+        $comments = $document->comments()
+            ->with('user')
+            ->orderBy('created_at')
+            ->get()
+            ->map(function ($c) use ($userId) {
+                return [
+                    'id' => $c->id,
+                    'comment' => $c->comment,
+                    'user_name' => $c->user->name ?? 'User',
+                    'is_mine' => $c->user_id === $userId,
+                    'created_at' => $c->created_at->diffForHumans(),
+                ];
+            });
+
+        return response()->json(['comments' => $comments]);
+    }
+
+    /**
+     * Tandai semua komentar orang lain di dokumen ini sebagai sudah dibaca
+     * (dipanggil saat dokumen dibuka/di-preview).
+     */
+    public function markCommentsRead($id)
+    {
+        $document = Document::with('approvals')->findOrFail($id);
+        $userId = Auth::id();
+
+        $this->assertCanAccessDiscussion($document, $userId);
+
+        $document->comments()
+            ->where('user_id', '!=', $userId)
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Jumlah komentar belum dibaca per dokumen, untuk badge di sidebar list
+     * dokumen. doc_ids dikirim sebagai query string dipisah koma.
+     */
+    public function unreadCommentCounts(Request $request)
+    {
+        $userId = Auth::id();
+
+        $documentIds = collect(explode(',', (string) $request->query('doc_ids', '')))
+            ->map(fn ($v) => (int) trim($v))
+            ->filter()
+            ->values();
+
+        if ($documentIds->isEmpty()) {
+            return response()->json(['counts' => (object) []]);
+        }
+
+        // Batasi cuma ke dokumen yang user ini memang berhak akses (pemilik/reviewer)
+        $accessibleIds = Document::whereIn('id', $documentIds)
+            ->where(function ($q) use ($userId) {
+                $q->where('user_id', $userId)
+                    ->orWhereHas('approvals', fn ($a) => $a->where('user_id', $userId));
+            })
+            ->pluck('id');
+
+        $counts = Comment::whereIn('document_id', $accessibleIds)
+            ->where('user_id', '!=', $userId)
+            ->where('is_read', false)
+            ->selectRaw('document_id, count(*) as total')
+            ->groupBy('document_id')
+            ->pluck('total', 'document_id');
+
+        return response()->json(['counts' => $counts]);
     }
 }

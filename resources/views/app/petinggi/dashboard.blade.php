@@ -52,14 +52,22 @@
             </div>
             <div class="flex-1 overflow-y-auto p-3 space-y-2">
                 @forelse($approvals as $app)
-                    @php $isDecided = $app->status !== 'MENUNGGU'; @endphp
+                    @php
+                        $isDecided = $app->status !== 'MENUNGGU';
+                        $willAutoOpen = $initialPendingApp && $initialPendingApp->id === $app->id;
+                        $unreadCount = $app->document->comments->where('user_id', '!=', auth()->id())->where('is_read', false)->count();
+                    @endphp
                     <button onclick="selectDocument({{ $app->document_id }})" id="listitem-{{ $app->document_id }}"
                         class="doc-list-item w-full text-left p-3 rounded-xl border transition
                         {{ $isDecided ? 'opacity-60' : '' }}
-                        {{ ($initialPendingApp && $initialPendingApp->id === $app->id) ? 'bg-[#4DA8FF]/10 border-[#4DA8FF]' : 'bg-[#021b41]/55 border-[#021b41] hover:border-[#4DA8FF]/60 hover:bg-[#4DA8FF]/5' }}">
+                        {{ $willAutoOpen ? 'bg-[#4DA8FF]/10 border-[#4DA8FF]' : 'bg-[#021b41]/55 border-[#021b41] hover:border-[#4DA8FF]/60 hover:bg-[#4DA8FF]/5' }}">
                         <div class="flex justify-between items-start gap-2">
                             <p class="font-semibold text-white text-xs leading-snug line-clamp-2">{{ $app->document->title }}</p>
-                            <x-approval-status-badge :status="$app->status" />
+                            <div class="flex items-center gap-1 shrink-0">
+                                <span id="unreadBadge-{{ $app->document_id }}"
+                                    class="{{ ($unreadCount > 0 && !$willAutoOpen) ? '' : 'hidden' }} bg-rose-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
+                                <x-approval-status-badge :status="$app->status" />
+                            </div>
                         </div>
                         <p class="text-[10px] text-slate-500 mt-1">No: {{ $app->document->document_number }}</p>
                         <p class="text-[10px] text-slate-500">{{ $app->document->user->name ?? 'ADMINISTRATOR' }}</p>
@@ -131,9 +139,6 @@
             @else
                 @foreach($approvals as $app)
                     @php
-                        // Dicek per dokumen: apakah petinggi ini (user login) sudah pernah
-                        // kirim komentar khusus untuk dokumen ini. $app->document->comments
-                        // sudah otomatis ter-scope ke document_id ini saja.
                         $hasCommented = $app->document->comments->where('user_id', auth()->id())->count() > 0;
                         $isInitial = $initialPendingApp && $initialPendingApp->id === $app->id;
                     @endphp
@@ -282,6 +287,8 @@
     let previewPdfDoc = null;
     let previewCurrentPage = 1;
     let previewTotalPages = 0;
+    let currentOpenDocId = null;
+    const knownCommentCounts = {};
 
     function showPreviewPlaceholder() {
         const canvas = document.getElementById('previewCanvas');
@@ -409,6 +416,8 @@
         const doc = reviewDocuments.find(d => d.id === id);
         if (!doc) return;
 
+        currentOpenDocId = id;
+
         document.getElementById('previewTitle').textContent = doc.title;
         document.getElementById('previewNumber').textContent = doc.document_number;
         document.getElementById('previewPengaju').textContent = doc.pengaju;
@@ -428,6 +437,10 @@
             item.classList.toggle('bg-[#021b41]/55', itemId !== id);
             item.classList.toggle('border-[#021b41]', itemId !== id);
         });
+
+        // dokumen ini lagi dibuka -> badge unread-nya disembunyikan & tandai dibaca di server
+        updateUnreadBadge(id, 0);
+        markCommentsRead(id);
 
         closeAllPanels();
     }
@@ -484,7 +497,8 @@
             if (!res.ok) throw new Error('Gagal mengirim pesan');
             const data = await res.json();
 
-            appendCommentBubble(docId, data.comment);
+            appendCommentBubble(docId, { comment: data.comment.comment, is_mine: true, user_name: 'Kamu', created_at: data.comment.created_at });
+            knownCommentCounts[docId] = (knownCommentCounts[docId] || 0) + 1;
             input.value = '';
             unlockRevisiButton(docId);
         } catch (err) {
@@ -503,18 +517,18 @@
         box.classList.remove('hidden');
 
         const wrapper = document.createElement('div');
-        wrapper.className = 'flex justify-end';
+        wrapper.className = 'flex ' + (comment.is_mine ? 'justify-end' : 'justify-start');
 
         const bubble = document.createElement('div');
-        bubble.className = 'max-w-[80%] bg-[#4DA8FF] text-white rounded-lg px-3 py-2';
+        bubble.className = 'max-w-[80%] rounded-lg px-3 py-2 ' + (comment.is_mine ? 'bg-[#4DA8FF] text-white' : 'bg-white border border-slate-200 text-slate-700');
 
         const textEl = document.createElement('p');
         textEl.className = 'text-[11px] leading-snug';
         textEl.textContent = comment.comment;
 
         const metaEl = document.createElement('p');
-        metaEl.className = 'text-[9px] mt-1 text-white/80';
-        metaEl.textContent = 'Kamu • ' + (comment.created_at || 'baru saja');
+        metaEl.className = 'text-[9px] mt-1 ' + (comment.is_mine ? 'text-white/80' : 'text-slate-400');
+        metaEl.textContent = (comment.is_mine ? 'Kamu' : comment.user_name) + ' • ' + (comment.created_at || 'baru saja');
 
         bubble.appendChild(textEl);
         bubble.appendChild(metaEl);
@@ -534,11 +548,93 @@
         if (lockMsg) lockMsg.classList.add('hidden');
     }
 
+    function updateUnreadBadge(docId, count) {
+        const badge = document.getElementById(`unreadBadge-${docId}`);
+        if (!badge) return;
+        if (count > 0 && docId !== currentOpenDocId) {
+            badge.textContent = count > 9 ? '9+' : count;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
+
+    async function markCommentsRead(docId) {
+        try {
+            await fetch(`{{ url('/app/document') }}/${docId}/comments/read`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                },
+            });
+        } catch (err) {
+            console.error('Gagal menandai pesan sudah dibaca:', err);
+        }
+    }
+
+    async function refreshCommentsForDoc(docId) {
+        try {
+            const res = await fetch(`{{ url('/app/document') }}/${docId}/comments`, {
+                headers: { 'Accept': 'application/json' },
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            const comments = data.comments || [];
+
+            const known = knownCommentCounts[docId] || 0;
+            if (comments.length > known) {
+                for (let i = known; i < comments.length; i++) {
+                    appendCommentBubble(docId, comments[i]);
+                }
+                knownCommentCounts[docId] = comments.length;
+
+                // ada pesan baru masuk & dokumen ini lagi kebuka -> tandai dibaca
+                markCommentsRead(docId);
+            }
+        } catch (err) {
+            console.error('Gagal refresh komentar:', err);
+        }
+    }
+
+    async function pollUpdates() {
+        try {
+            const docIds = reviewDocuments.map(d => d.id).join(',');
+            if (!docIds) return;
+
+            const res = await fetch(`{{ url('/app/documents/unread-counts') }}?doc_ids=${docIds}`, {
+                headers: { 'Accept': 'application/json' },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                reviewDocuments.forEach(d => {
+                    const count = (data.counts && data.counts[d.id]) || 0;
+                    updateUnreadBadge(d.id, count);
+                });
+            }
+
+            if (currentOpenDocId) {
+                await refreshCommentsForDoc(currentOpenDocId);
+            }
+        } catch (err) {
+            console.error('Polling error:', err);
+        }
+    }
+
+    function initKnownCommentCounts() {
+        document.querySelectorAll('[id^="commentsBox-"]').forEach(box => {
+            const docId = parseInt(box.id.replace('commentsBox-', ''));
+            knownCommentCounts[docId] = box.children.length;
+        });
+    }
+
     // Auto-preview: kalau ada dokumen yang di-fokus lewat notifikasi (?doc=),
     // buka itu apa pun statusnya. Kalau tidak, hanya auto-buka dokumen
     // pertama yang statusnya MENUNGGU. Kalau semua sudah direspon (atau
     // memang belum ada dokumen), biarkan placeholder teks yang tampil,
     // tidak ada PDF yang otomatis dibuka.
+    initKnownCommentCounts();
+
     const focusDocId = @json($focusDocId ?? null);
     const focusDoc = focusDocId ? reviewDocuments.find(d => d.id === parseInt(focusDocId)) : null;
 
@@ -550,6 +646,9 @@
             selectDocument(firstPending.id);
         }
     }
+
+    // Polling tiap 6 detik: cek pesan baru & unread count
+    setInterval(pollUpdates, 6000);
 </script>
 
 <!-- Modal Konfirmasi Tindakan Review -->

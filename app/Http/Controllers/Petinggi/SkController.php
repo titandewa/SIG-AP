@@ -249,6 +249,8 @@ class SkController extends Controller
 
         $doc->update(['status' => 'DITINJAU_DIREKSI']);
 
+        NotificationHistory::where('data->document_id', (string) $doc->id)->delete();
+
         $direksiApprovals = $doc->approvals()->where('role', 'direksi')->with('user')->get();
 
         foreach ($direksiApprovals as $direksiApproval) {

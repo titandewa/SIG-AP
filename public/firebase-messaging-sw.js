@@ -12,9 +12,21 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Handler untuk pesan notifikasi (notification payload) saat app di background
+function updateBadgeFromData(data) {
+  if (data.badge_count === undefined) return;
+  const count = parseInt(data.badge_count, 10) || 0;
+  if ('setAppBadge' in navigator) {
+    if (count > 0) {
+      navigator.setAppBadge(count).catch(() => {});
+    } else {
+      navigator.clearAppBadge().catch(() => {});
+    }
+  }
+}
+
 messaging.onBackgroundMessage((payload) => {
   const data = payload.data || {};
+  updateBadgeFromData(data);
   const notificationTitle = data.title || "SIGAP";
   const notificationOptions = {
     body: data.body || "",
@@ -22,28 +34,21 @@ messaging.onBackgroundMessage((payload) => {
     badge: "/favicon.ico",
     data: data,
   };
-
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Handler untuk pesan data-only (data payload) saat app di background.
-// Backend FcmService mengirim data-only via withData(), sehingga event 'push'
-// mentah yang akan diterima di sini.
 self.addEventListener("push", function (event) {
-  if (!event.data) {
-    return;
-  }
+  if (!event.data) return;
 
   let payload = {};
   try {
     payload = event.data.json();
   } catch (e) {
-    // Jika bukan JSON, coba parse sebagai teks
     payload = { title: "SIGAP", body: event.data.text() };
   }
 
-  // Data-only FCM messages: payload.data berisi data yang dikirim backend
   const data = payload.data || payload;
+  updateBadgeFromData(data);
   const notificationTitle = data.title || "SIGAP";
   const notificationOptions = {
     body: data.body || "",

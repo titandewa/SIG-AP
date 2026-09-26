@@ -190,12 +190,17 @@ class SkController extends Controller
 
             return $document;
         });
-
+    
         $document->load('approvals.user');
         foreach ($document->approvals->where('role', 'validator') as $approval) {
             $this->waService->sendWaPengajuanBaru($approval->user, $document);
 
             if ($approval->user) {
+                $pendingCount = \App\Models\DocumentApproval::where('user_id', $approval->user_id)
+                    ->where('role', 'validator')
+                    ->where('status', 'MENUNGGU')
+                    ->count();
+
                 $this->fcmService->sendToUser(
                     $approval->user,
                     'Pengajuan SK Baru',
@@ -204,6 +209,7 @@ class SkController extends Controller
                         'document_id' => (string) $document->id,
                         'type' => 'pengajuan_baru',
                         'url' => route('app.petinggi.dashboard', ['doc' => $document->id]),
+                        'badge_count' => (string) $pendingCount,
                     ]
                 );
             }
@@ -272,15 +278,24 @@ class SkController extends Controller
 
         foreach ($document->approvals->where('role', $notifyRole) as $approval) {
             if ($approval->user) {
+                $data = [
+                    'document_id' => (string) $document->id,
+                    'type' => 'revisi_diunggah',
+                    'url' => $notifUrl,
+                ];
+
+                if ($notifyRole === 'validator') {
+                    $data['badge_count'] = (string) \App\Models\DocumentApproval::where('user_id', $approval->user_id)
+                        ->where('role', 'validator')
+                        ->where('status', 'MENUNGGU')
+                        ->count();
+                }
+
                 $this->fcmService->sendToUser(
                     $approval->user,
                     'Revisi SK Diunggah',
                     "Administrator telah mengunggah revisi dokumen \"{$document->title}\", perlu ditinjau ulang.",
-                    [
-                        'document_id' => (string) $document->id,
-                        'type' => 'revisi_diunggah',
-                        'url' => $notifUrl,
-                    ]
+                    $data
                 );
             }
         }

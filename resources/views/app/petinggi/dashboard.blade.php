@@ -621,6 +621,30 @@
         }
     }
 
+    function updateAppBadge(count) {
+        if ('setAppBadge' in navigator) {
+            if (count > 0) {
+                navigator.setAppBadge(count).catch(() => {});
+            } else {
+                navigator.clearAppBadge().catch(() => {});
+            }
+        }
+    }
+
+    function refreshAppBadge() {
+        fetch('{{ route("petinggi.pending-count") }}')
+            .then(res => res.json())
+            .then(data => updateAppBadge(data.count))
+            .catch(() => {});
+    }
+
+    refreshAppBadge(); // saat page pertama load
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') refreshAppBadge();
+    });
+    window.addEventListener('pageshow', refreshAppBadge);
+
     function initKnownCommentCounts() {
         document.querySelectorAll('[id^="commentsBox-"]').forEach(box => {
             const docId = parseInt(box.id.replace('commentsBox-', ''));

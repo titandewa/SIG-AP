@@ -430,4 +430,14 @@ class SkController extends Controller
 
         return redirect()->route('app.petinggi.dashboard')->with('success', 'Dokumen disetujui tanpa tanda tangan. Admin akan menempelkan TTD Anda nanti.');
     }
+
+    public function pendingCount()
+    {
+        $count = DocumentApproval::where('user_id', Auth::id())
+            ->where('role', 'validator')
+            ->where('status', 'MENUNGGU')
+            ->count();
+
+        return response()->json(['count' => $count]);
+    }
 }

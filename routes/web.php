@@ -152,6 +152,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/app/petinggi/ttd/{id}', [PetinggiSkController::class, 'saveSignaturePlacement'])->name('petinggi.ttd.save');
         Route::get('/app/petinggi/signature', [PetinggiSkController::class, 'showSignaturePage'])->name('petinggi.signature.page');
         Route::post('/app/petinggi/signature', [PetinggiSkController::class, 'saveSignature'])->name('petinggi.signature.save');
+        Route::get('/app/petinggi/pending-count', [PetinggiSkController::class, 'pendingCount'])->name('petinggi.pending-count');
     });
 
     // Route khusus Dirut

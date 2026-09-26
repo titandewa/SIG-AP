@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Http;
 
 class AkunController extends Controller
 {
@@ -163,5 +164,14 @@ class AkunController extends Controller
         $logs = $query->paginate(25)->withQueryString();
 
         return view('admin.activity-logs', compact('logs'));
+    }
+
+    public function fonnteQuota()
+    {
+        $response = Http::withHeaders([
+            'Authorization' => config('services.fonnte.token'),
+        ])->post('https://api.fonnte.com/device');
+
+        return response()->json($response->json());
     }
 }

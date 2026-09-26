@@ -23,6 +23,14 @@
         </div>
     @endif
 
+        <div id="fonnteQuotaCard" class="bg-white border border-slate-200 rounded-2xl p-4 mb-4 flex items-center justify-between">
+            <div>
+                <p class="text-xs text-slate-500">Sisa Kuota WhatsApp (Fonnte)</p>
+                <p id="fonnteQuotaValue" class="text-lg font-bold text-slate-900">Memuat...</p>
+            </div>
+            <i class="fa-brands fa-whatsapp text-emerald-500 text-2xl"></i>
+        </div>
+
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div>
             <h1 class="text-xl font-bold text-slate-900">Manajemen Akun</h1>
@@ -340,6 +348,20 @@
             }
             document.getElementById('signatureImageInputAdmin').value = document.getElementById('uploadPreviewCanvasAdmin').toDataURL('image/png');
         });
+
+         fetch('{{ route("app.admin.fonnte-quota") }}')
+            .then(res => res.json())
+            .then(data => {
+                const el = document.getElementById('fonnteQuotaValue');
+                if (data.status) {
+                    el.textContent = data.quota + ' pesan';
+                } else {
+                    el.textContent = 'Gagal memuat';
+                }
+            })
+            .catch(() => {
+                document.getElementById('fonnteQuotaValue').textContent = 'Gagal memuat';
+            });
     </script>
 
 </x-app-shell>

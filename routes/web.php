@@ -175,6 +175,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/akun/{user}/reset-password', [AkunController::class, 'resetPassword'])->name('akun.reset-password');
         Route::post('/akun/{user}/ttd', [AkunController::class, 'updateTtd'])->name('akun.ttd');
         Route::get('/activity-logs', [AkunController::class, 'activityLogs'])->name('activity-logs');
+        Route::get('/fonnte-quota', [AkunController::class, 'fonnteQuota'])->name('fonnte-quota');
     });
 
 });

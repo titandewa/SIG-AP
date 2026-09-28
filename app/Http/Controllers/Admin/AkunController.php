@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\User;
 use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\Request;
@@ -58,6 +59,8 @@ class AkunController extends Controller
 
         $this->waService->sendWaRegistrasiAkun($user, $plainPassword);
 
+        $this->logActivity('buat_akun', "Membuat akun baru: {$user->name} ({$user->role})");
+
         return back()->with('status', 'Akun berhasil ditambahkan.');
     }
 
@@ -79,6 +82,8 @@ class AkunController extends Controller
 
         $user->update($data);
 
+        $this->logActivity('edit_akun', "Memperbarui akun: {$user->name} ({$user->role})");
+
         return back()->with('status', 'Akun berhasil diperbarui.');
     }
 
@@ -88,7 +93,12 @@ class AkunController extends Controller
             abort(403);
         }
 
+        $nama = $user->name;
+        $role = $user->role;
+
         $user->delete();
+
+        $this->logActivity('hapus_akun', "Menghapus akun: {$nama} ({$role})");
 
         return back()->with('status', 'Akun berhasil dihapus.');
     }
@@ -108,6 +118,8 @@ class AkunController extends Controller
         ]);
 
         $this->waService->sendWaRegistrasiAkun($user, $plainPassword);
+
+        $this->logActivity('reset_password', "Mereset password akun: {$user->name}");
 
         return back()->with('status', "Password {$user->name} berhasil direset.");
     }
@@ -129,6 +141,8 @@ class AkunController extends Controller
         }
 
         $user->update(['signature_path' => $path]);
+
+        $this->logActivity('update_ttd', "Memperbarui tanda tangan akun: {$user->name}");
 
         return back()->with('status', 'Tanda tangan berhasil diperbarui.');
     }
@@ -173,5 +187,18 @@ class AkunController extends Controller
         ])->post('https://api.fonnte.com/device');
 
         return response()->json($response->json());
+    }
+
+    /**
+     * Catat aktivitas admin ke ActivityLog.
+     */
+    protected function logActivity(string $action, string $description): void
+    {
+        ActivityLog::create([
+            'actor_id' => auth()->id(),
+            'actor_role' => 'admin',
+            'action' => $action,
+            'description' => $description,
+        ]);
     }
 }

@@ -3,6 +3,7 @@
         'aspri' => 'Administrator',
         'petinggi' => 'Validator',
         'dirut' => 'Direksi',
+        'admin' => 'Admin',
     ];
 
     $actionLabels = [
@@ -11,6 +12,11 @@
         'revisi' => 'Revisi',
         'tanda_tangan' => 'Tanda Tangan',
         'sahkan_tanpa_ttd' => 'Sahkan Tanpa TTD',
+        'buat_akun' => 'Buat Akun',
+        'edit_akun' => 'Edit Akun',
+        'hapus_akun' => 'Hapus Akun',
+        'reset_password' => 'Reset Password',
+        'update_ttd' => 'Update TTD',
     ];
 
     $actionColors = [
@@ -19,6 +25,11 @@
         'revisi' => 'amber',
         'tanda_tangan' => 'indigo',
         'sahkan_tanpa_ttd' => 'violet',
+        'buat_akun' => 'emerald',
+        'edit_akun' => 'sky',
+        'hapus_akun' => 'rose',
+        'reset_password' => 'amber',
+        'update_ttd' => 'indigo',
     ];
 @endphp
 

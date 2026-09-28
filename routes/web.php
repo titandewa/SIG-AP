@@ -91,6 +91,10 @@ Route::get('/force-logout', function () {
 
 Route::post('/reset-forced-password', [App\Http\Controllers\Auth\AuthenticatedSessionController::class, 'resetForced'])->name('password.reset-forced');
 
+Route::get('/dokumen/{id}/download/{type}', [DocumentController::class, 'download'])
+    ->name('document.download')
+    ->whereIn('type', ['signed', 'pdf']);
+
 Route::middleware(['auth'])->group(function () {
 
     Route::get('/dashboard', function () {

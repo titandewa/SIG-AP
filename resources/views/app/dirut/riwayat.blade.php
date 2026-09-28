@@ -22,7 +22,7 @@
                 </button>
 
                 @if(request('search'))
-                    <a href="{{ route('dirut.riwayat') }}" class="text-xs text-rose-600 hover:underline">Reset filter</a>
+                <a href="{{ route('dirut.riwayat') }}" class="text-xs text-rose-600 hover:underline">Reset filter</a>
                 @endif
             </form>
         </div>
@@ -30,39 +30,39 @@
         <!-- List Approval Direksi -->
         <div class="space-y-4">
             @forelse($approvals as $approval)
-                @php $document = $approval->document; @endphp
-                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                    <div class="flex justify-between items-start gap-3">
-                        <div class="min-w-0">
-                            <x-status-badge :status="$document->display_status" />
-                            <h3 class="font-bold text-slate-800 text-base mt-1">{{ $document->title }}</h3>
-                            <p class="text-xs text-slate-500">
-                                No: {{ $document->document_number }} • Administrator: {{ $document->user->name ?? '-' }}
-                                • Keputusanmu: <x-approval-status-badge :status="$approval->status" />
-                                • {{ $approval->updated_at->translatedFormat('d F Y, H:i') }}
-                            </p>
-                            @if($document->pending_parties_label)
-                                <p class="text-[11px] text-slate-400 mt-1">
-                                    <i class="fa-solid fa-hourglass-half mr-1"></i>{{ $document->pending_parties_label }}
-                                </p>
-                            @endif
-                        </div>
+            @php $document = $approval->document; @endphp
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-start gap-3">
+                    <div class="min-w-0">
+                        <x-status-badge :status="$document->display_status" />
+                        <h3 class="font-bold text-slate-800 text-base mt-1">{{ $document->title }}</h3>
+                        <p class="text-xs text-slate-500">
+                            No: {{ $document->document_number }} • Administrator: {{ $document->user->name ?? '-' }}
+                            • Keputusanmu: <x-approval-status-badge :status="$approval->status" />
+                            • {{ $approval->updated_at->translatedFormat('d F Y, H:i') }}
+                        </p>
+                        @if($document->pending_parties_label)
+                        <p class="text-[11px] text-slate-400 mt-1">
+                            <i class="fa-solid fa-hourglass-half mr-1"></i>{{ $document->pending_parties_label }}
+                        </p>
+                        @endif
                     </div>
+                </div>
 
-                    @if($document->status === 'DISETUJUI' && $document->signed_file_path)
-                        <div class="mt-3 pt-3 border-t border-slate-100">
-                            <a href="{{ asset('storage/' . $document->signed_file_path) }}" target="_blank"
-                                class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition">
-                                <i class="fa-solid fa-download"></i> Download Dokumen Bertandatangan
-                            </a>
-                        </div>
-                    @endif
+                @if($document->status === 'DISETUJUI' && $document->signed_file_path)
+                <div class="mt-3 pt-3 border-t border-slate-100">
+                    <a href="{{ route('document.download', [$document->id, 'signed']) }}"
+                        class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition">
+                        <i class="fa-solid fa-download"></i> Download Dokumen Bertandatangan
+                    </a>
                 </div>
+                @endif
+            </div>
             @empty
-                <div class="text-center py-16 bg-white rounded-2xl border border-slate-200">
-                    <i class="fa-solid fa-folder-open text-3xl text-slate-300 mb-2 block"></i>
-                    <p class="text-slate-400 text-sm">Belum ada dokumen yang kamu putuskan.</p>
-                </div>
+            <div class="text-center py-16 bg-white rounded-2xl border border-slate-200">
+                <i class="fa-solid fa-folder-open text-3xl text-slate-300 mb-2 block"></i>
+                <p class="text-slate-400 text-sm">Belum ada dokumen yang kamu putuskan.</p>
+            </div>
             @endforelse
         </div>
     </div>

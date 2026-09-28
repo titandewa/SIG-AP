@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class DocumentController extends Controller
 {
@@ -202,5 +204,24 @@ class DocumentController extends Controller
             ->pluck('total', 'document_id');
 
         return response()->json(['counts' => $counts]);
+    }
+
+    public function download($id, string $type)
+    {
+        $document = Document::with(['approvals', 'latestVersion'])->findOrFail($id);
+
+        $this->assertCanAccessDiscussion($document, Auth::id());
+
+        $path = match ($type) {
+            'signed' => $document->signed_file_path,
+            'pdf'    => $document->latestVersion?->file_path,
+            default  => null,
+        };
+
+        abort_if(!$path || !Storage::disk('public')->exists($path), 404);
+
+        $name = Str::slug($document->title) . '.' . pathinfo($path, PATHINFO_EXTENSION);
+
+        return Storage::disk('public')->download($path, $name);
     }
 }

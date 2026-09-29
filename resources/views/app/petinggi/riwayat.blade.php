@@ -102,7 +102,7 @@
 
                 @if($app->document->status === 'DISETUJUI' && $app->document->signed_file_path)
                 <div class="mt-3 pt-3 border-t border-slate-100">
-                    <a href="{{ route('document.download', [$document->id, 'signed']) }}"
+                    <a href="{{ route('document.download', [$app->document->id, 'signed']) }}"
                         class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition">
                         <i class="fa-solid fa-download"></i> Download Dokumen Bertandatangan
                     </a>

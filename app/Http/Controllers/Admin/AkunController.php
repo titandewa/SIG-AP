@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Http;
+use App\Models\SignaturePlacement;
+use Illuminate\Support\Facades\DB;
 
 class AkunController extends Controller
 {
@@ -29,7 +31,7 @@ class AkunController extends Controller
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
@@ -133,14 +135,22 @@ class AkunController extends Controller
         $imageData = preg_replace('#^data:image/\w+;base64,#i', '', $request->input('signature_image'));
         $imageData = base64_decode($imageData);
 
+        $oldPath = $user->signature_path;
         $path = 'signatures/' . $user->id . '_' . time() . '.png';
         Storage::disk('public')->put($path, $imageData);
 
-        if ($user->signature_path) {
-            Storage::disk('public')->delete($user->signature_path);
-        }
+        DB::transaction(function () use ($user, $oldPath, $path) {
+            if ($oldPath) {
+                SignaturePlacement::where('user_id', $user->id)
+                    ->where('signature_path', $oldPath)
+                    ->update(['signature_path' => $path]);
+            }
+            $user->update(['signature_path' => $path]);
+        });
 
-        $user->update(['signature_path' => $path]);
+        if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
 
         $this->logActivity('update_ttd', "Memperbarui tanda tangan akun: {$user->name}");
 
@@ -163,7 +173,7 @@ class AkunController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('description', 'like', "%{$search}%")
-                ->orWhereHas('actor', fn($q2) => $q2->where('name', 'like', "%{$search}%"));
+                    ->orWhereHas('actor', fn($q2) => $q2->where('name', 'like', "%{$search}%"));
             });
         }
 

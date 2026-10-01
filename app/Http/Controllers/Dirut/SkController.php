@@ -31,12 +31,12 @@ class SkController extends Controller
     public function index(Request $request)
     {
         $approvals = DocumentApproval::with([
-                'document.latestVersion',
-                'document.versions',
-                'document.user',
-                'document.approvals.user',
-                'document.comments.user'
-            ])
+            'document.latestVersion',
+            'document.versions',
+            'document.user',
+            'document.approvals.user',
+            'document.comments.user'
+        ])
             ->where('user_id', Auth::id())
             ->where('role', 'direksi')
             ->whereHas('document', function ($q) {
@@ -73,7 +73,7 @@ class SkController extends Controller
             $search = $request->search;
             $query->whereHas('document', function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                ->orWhere('document_number', 'like', "%{$search}%");
+                    ->orWhere('document_number', 'like', "%{$search}%");
             });
         }
 
@@ -341,10 +341,7 @@ class SkController extends Controller
         ]);
 
         $user = Auth::user();
-
-        if ($user->signature_path && Storage::disk('public')->exists($user->signature_path)) {
-            Storage::disk('public')->delete($user->signature_path);
-        }
+        $oldPath = $user->signature_path;
 
         $imageData = $request->signature_image;
         $imageData = str_replace('data:image/png;base64,', '', $imageData);
@@ -354,7 +351,18 @@ class SkController extends Controller
         $fileName = 'signatures/dirut_' . Auth::id() . '_' . time() . '.png';
         Storage::disk('public')->put($fileName, $imageBytes);
 
-        $user->update(['signature_path' => $fileName]);
+        DB::transaction(function () use ($user, $oldPath, $fileName) {
+            if ($oldPath) {
+                SignaturePlacement::where('user_id', $user->id)
+                    ->where('signature_path', $oldPath)
+                    ->update(['signature_path' => $fileName]);
+            }
+            $user->update(['signature_path' => $fileName]);
+        });
+
+        if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
 
         return redirect()->route('app.dirut.dashboard')->with('success', 'Tanda tangan berhasil disimpan!');
     }

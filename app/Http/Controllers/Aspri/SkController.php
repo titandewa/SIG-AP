@@ -50,7 +50,17 @@ class SkController extends Controller
 
         $document->comments()->update(['is_read' => true]);
 
-        return view('app.aspri.detail', compact('document'));
+        // Link wa.me per approver (key = id approval)
+        $waLinks = [];
+        foreach ($document->approvals as $approval) {
+            $waLinks[$approval->id] = $this->waService->linkPeninjauan(
+                $approval->user,
+                $document,
+                $approval->role === 'direksi' ? route('app.dirut.dashboard') : route('app.petinggi.dashboard')
+            );
+        }
+
+        return view('app.aspri.detail', compact('document', 'waLinks'));
     }
 
     public function destroy($id)
@@ -193,8 +203,6 @@ class SkController extends Controller
     
         $document->load('approvals.user');
         foreach ($document->approvals->where('role', 'validator') as $approval) {
-            $this->waService->sendWaPengajuanBaru($approval->user, $document);
-
             if ($approval->user) {
                 $pendingCount = \App\Models\DocumentApproval::where('user_id', $approval->user_id)
                     ->where('role', 'validator')
@@ -215,7 +223,8 @@ class SkController extends Controller
             }
         }
 
-        return redirect()->back()->with('success', 'SK berhasil diajukan dan diteruskan ke para Validator!');
+        return redirect()->route('aspri.detail', $document->id)
+            ->with('success', 'SK berhasil diajukan. Kirim pesan WhatsApp ke tiap Validator lewat tombol di bawah.');
     }
 
     public function versionHistory($id)

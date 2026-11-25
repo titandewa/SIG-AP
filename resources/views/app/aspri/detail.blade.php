@@ -51,15 +51,6 @@
 
             <!-- Baris Tombol Aksi -->
             <div class="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
-                @if(in_array($document->status, ['DITINJAU', 'PENDING']))
-                    <form action="{{ route('aspri.reminder', $document->id) }}" method="POST">
-                        @csrf
-                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition shadow-sm flex items-center gap-1.5">
-                            <i class="fa-brands fa-whatsapp text-sm"></i> Send Auto-WA Reminder
-                        </button>
-                    </form>
-                @endif
-
                 <a href="{{ route('aspri.version-history', $document->id) }}"
                     class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-4 py-2.5 rounded-lg transition flex items-center gap-1.5">
                     <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Versi
@@ -128,7 +119,19 @@
                                 </p>
                             </div>
                         </div>
-                        <x-approval-status-badge :status="$approval->status" />
+                        <div class="flex items-center gap-2">
+                            @if($approval->status === 'MENUNGGU' && in_array($document->status, ['DITINJAU', 'PENDING']))
+                                @if(!empty($waLinks[$approval->id]))
+                                    <a href="{{ $waLinks[$approval->id] }}" target="_blank" rel="noopener"
+                                        class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition flex items-center gap-1">
+                                        <i class="fa-brands fa-whatsapp"></i> Kirim WA
+                                    </a>
+                                @else
+                                    <span class="text-[10px] text-slate-400">No. WA belum ada</span>
+                                @endif
+                            @endif
+                            <x-approval-status-badge :status="$approval->status" />
+                        </div>
                     </div>
                 @endforeach
             </div>

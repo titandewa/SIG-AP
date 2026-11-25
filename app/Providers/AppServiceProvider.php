@@ -25,16 +25,19 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $request = $this->app['request'];
+        $host = $request->getHost();
 
-        $host = $request->headers->get('x-forwarded-host') ?? $request->getHost();
-        $scheme = $request->headers->get('x-forwarded-proto') ?? $request->getScheme();
+        // Jika diakses melalui ngrok, gunakan pengaturan proxy/ngrok
+        if (str_contains($host, 'ngrok-free.app') || str_contains($host, 'ngrok.io')) {
+            $forwardedHost = $request->headers->get('x-forwarded-host');
+            $forwardedScheme = $request->headers->get('x-forwarded-proto');
 
-        $rootUrl = $scheme . '://' . $host;
-
-        if (!empty($rootUrl)) {
-            config(['app.url' => $rootUrl]);
-            URL::forceRootUrl($rootUrl);
-            URL::forceScheme($scheme);
+            if ($forwardedHost && $forwardedScheme) {
+                $rootUrl = $forwardedScheme . '://' . $forwardedHost;
+                config(['app.url' => $rootUrl]);
+                URL::forceRootUrl($rootUrl);
+                URL::forceScheme($forwardedScheme);
+            }
         }
     }
 }

@@ -699,7 +699,11 @@
                 const pdfDoc = await PDFDocument.load(originalPdfBytes.slice(0));
 
                 async function embedSignatureOnPdf(pdfDoc, imgUrl, pageNumber, x, y, width, height) {
-                    const imgBytes = await fetch(imgUrl).then(r => r.arrayBuffer());
+                    const res = await fetch(imgUrl);
+                    console.log('TTD:', imgUrl, res.status, res.headers.get('content-type'));
+                    const imgBytes = await res.arrayBuffer();
+                    console.log('ukuran:', imgBytes.byteLength);
+
                     let img;
                     try {
                         img = await pdfDoc.embedPng(imgBytes);

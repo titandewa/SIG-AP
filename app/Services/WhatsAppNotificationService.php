@@ -33,6 +33,41 @@ class WhatsAppNotificationService
         return $nomor;
     }
 
+    /**
+     * Buat link wa.me dengan pesan yang sudah terisi (pengirim menekan Kirim sendiri di WhatsApp).
+     */
+    public function waLink($nomor, $pesan)
+    {
+        return 'https://wa.me/' . $this->formatNomorWA($nomor) . '?text=' . rawurlencode($pesan);
+    }
+
+    /**
+     * Link wa.me untuk meminta validator meninjau dokumen (pengajuan baru / reminder).
+     * Mengembalikan null kalau validator tidak punya nomor WA.
+     */
+    public function linkPeninjauan($validator, $document)
+    {
+        if (!$validator || !$validator->phone) {
+            return null;
+        }
+
+        $tanggalUpload = $document->created_at->translatedFormat('d F Y, H:i');
+        $pengirim = $document->user->name ?? '-';
+        $link = route('app.petinggi.dashboard');
+
+        $pesan = "Selamat {$this->salamWaktu()} Bapak/Ibu {$validator->name}\n\n"
+            . "Untuk melengkapi administrasi, berikut saya lampirkan Surat Pengajuan yang perlu ditinjau :\n\n"
+            . "Judul Surat : {$document->title}\n"
+            . "Nomor Surat : {$document->document_number}\n"
+            . "Tgl Pengajuan : {$tanggalUpload}\n"
+            . "Diajukan oleh : {$pengirim}\n\n"
+            . "Mohon segera ditinjau melalui link berikut, dan apabila tidak setuju mohon menyertakan alasan pada kolom komentar\n"
+            . "{$link}\n\n"
+            . "Terimakasih";
+
+        return $this->waLink($validator->phone, $pesan);
+    }
+
     private function kirim($nomor, $pesan)
     {
         Http::withHeaders([
